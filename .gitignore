@@ -1,38 +1,25 @@
-# ---------------------------------------------------------------
-# Godot 4 项目 .gitignore
-# 原则：忽略引擎缓存/导入产物与导出包，提交源码、场景、资源与文档
-# ---------------------------------------------------------------
-
-# Godot 引擎缓存与导入数据（可完全由引擎重新生成）
-.godot/
-.import/
-
-# 导出配置与导出产物
-export.cfg
-export_presets.cfg
-exports/
-build/
-*.pck
-*.zip
-
-# 由 CSV 生成的翻译资源
+# Godot 缓存和 CSV 导入生成的翻译文件
+/.godot/
+/.import/
 *.translation
 
-# C#/.NET（若后续启用 Mono 版本）
-.mono/
-bin/
-obj/
-data_*/
+# 构建与导出产物，export_presets.cfg 随项目提交
+/build/
+/exports/
+/*.pck
+
+# C# / .NET 本地构建产物
+/.mono/
+/bin/
+/obj/
 mono_crash.*.json
 
-# 编辑器 / 操作系统噪音文件
+# 编辑器设置和系统临时文件
+/.vscode/
+/.idea/
+/.vs/
 .DS_Store
 Thumbs.db
 desktop.ini
 *.swp
 *~
-.vscode/
-.idea/
-
-# 注意：scripts/**/*.gd 旁边的 .uid 文件是 Godot 4.4+ 的资源 UID，
-# 必须提交到仓库，否则重新导入时资源引用会失效，故此处刻意不忽略。
