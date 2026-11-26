@@ -79,8 +79,15 @@
       }
     }
   ],
-  "human_review": "pending",
-  "phase_one_accepted": false,
+  "human_review": "user_confirmed",
+  "human_review_evidence": {
+    "date": "2026-11-26",
+    "statement": "基础战斗与领奖没有问题",
+    "scope": ["基础战斗", "领奖"],
+    "source_fingerprint_rechecked": true,
+    "note": "其他交互及两种尺寸的关键控件边界由既有自动用例覆盖；不据此宣称用户已逐项检查所有窗口比例、文字裁切或视觉效果。"
+  },
+  "phase_one_accepted": true,
   "status": "automated_passed",
   "source_unchanged": true
 }
