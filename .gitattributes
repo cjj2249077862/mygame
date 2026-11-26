@@ -1,0 +1,74 @@
+# =====================================================================
+# 换行符与二进制文件策略
+# =====================================================================
+# 背景：本仓库索引（index）里所有文本文件一直以 LF 存储，但 Windows 开发机
+# 的 core.autocrlf=true 会让 git 在检出时把它们改成 CRLF，于是对 LF 文件执行
+# git add / git diff 时反复报：
+#     warning: LF will be replaced by CRLF in <file>
+#
+# 这里用 eol=lf 把转换规则固定下来：
+#   - 入库时 CRLF -> LF（与历史提交保持一致，不产生任何内容变化）
+#   - 检出时保持 LF（不再"被替换成 CRLF"，警告随之消失）
+# 好处是各平台（Windows / Linux / CI）检出结果一致，也不依赖每个人的
+# core.autocrlf 设置。
+
+# 兜底规则：其余全部按文本处理并统一 LF（Git 仍会对二进制内容自动跳过）
+* text=auto eol=lf
+
+# ---------------------------------------------------------------------
+# Godot 文本资源与工程文件
+# ---------------------------------------------------------------------
+*.gd         text eol=lf
+*.gdshader   text eol=lf
+*.tscn       text eol=lf
+*.tres       text eol=lf
+*.godot      text eol=lf
+*.cfg        text eol=lf
+*.import     text eol=lf
+*.uid        text eol=lf
+*.gdignore   text eol=lf
+
+# ---------------------------------------------------------------------
+# 数据、脚本、文档
+# ---------------------------------------------------------------------
+*.json       text eol=lf
+*.md         text eol=lf
+*.txt        text eol=lf
+*.py         text eol=lf
+*.sh         text eol=lf
+*.log        text eol=lf
+*.csv        text eol=lf
+*.svg        text eol=lf
+*.gltf       text eol=lf
+
+# ---------------------------------------------------------------------
+# 二进制资源：禁止任何换行符转换（否则会损坏文件）
+# ---------------------------------------------------------------------
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.webp       binary
+*.tga        binary
+*.bmp        binary
+*.wav        binary
+*.ogg        binary
+*.mp3        binary
+*.ttf        binary
+*.otf        binary
+*.woff       binary
+*.woff2      binary
+*.res        binary
+*.scn        binary
+*.glb        binary
+*.blend      binary
+*.xlsx       binary
+*.exe        binary
+*.dll        binary
+*.so         binary
+*.pck        binary
+
+# ---------------------------------------------------------------------
+# Git 自身配置
+# ---------------------------------------------------------------------
+.gitattributes text eol=lf
+.gitignore     text eol=lf
