@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import shutil
+import zipfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('export_data', ROOT / 'tools/export_data.py')
@@ -40,6 +44,19 @@ class ExportTests(unittest.TestCase):
             ('missing upgrade', lambda b: b['cards']['sheets']['effects'].pop(1)),
             ('intent order', lambda b: b['encounters']['sheets']['intents'][0].update(order=9)),
             ('ratio', lambda b: next(r for r in b['battle_rules']['sheets']['main'] if r['id']=='post_battle_revive').update(value=2)),
+            ('upgrade hits', lambda b: next(r for r in b['cards']['sheets']['effects'] if r['card_id']=='double_stab' and r['upgraded']).update(hits=3)),
+            ('weaker upgrade', lambda b: next(r for r in b['cards']['sheets']['effects'] if r['card_id']=='slash' and r['upgraded']).update(amount=0)),
+            ('upgrade removed dispel', lambda b: b['cards']['sheets'].update(effects=[r for r in b['cards']['sheets']['effects'] if not (r['card_id']=='first_aid' and r['upgraded'] and r['kind']=='dispel')])),
+            ('missing UI text', lambda b: b['texts_zh_cn']['sheets'].update(main=[r for r in b['texts_zh_cn']['sheets']['main'] if r['id']!='ui.end_turn'])),
+            ('log parameter', lambda b: next(r for r in b['texts_zh_cn']['sheets']['main'] if r['id']=='log.damage').update(text='{missing}')),
+            ('malformed placeholder', lambda b: next(r for r in b['texts_zh_cn']['sheets']['main'] if r['id']=='log.damage').update(text='{amount')),
+            ('duplicate parameter', lambda b: next(r for r in b['cards']['sheets']['effects'] if r['card_id']=='shield_bash' and not r['upgraded'] and r['kind']=='interrupt').update(parameter='amount')),
+            ('missing starter', lambda b: b['characters']['sheets'].update(starter=[r for r in b['characters']['sheets']['starter'] if r['character_id']!='mender'])),
+            ('missing portrait', lambda b: b['characters']['sheets']['main'][0].update(portrait='res://assets/characters/missing.png')),
+            ('weak increases damage', lambda b: next(r for r in b['battle_rules']['sheets']['main'] if r['id']=='weak_multiplier').update(value=1.5)),
+            ('vulnerable reduces damage', lambda b: next(r for r in b['battle_rules']['sheets']['main'] if r['id']=='vulnerable_multiplier').update(value=0.5)),
+            ('empty hand cap', lambda b: next(r for r in b['battle_rules']['sheets']['main'] if r['id']=='hand_limit').update(value=0)),
+            ('non-object row', lambda b: b['cards']['sheets']['main'].append(3)),
         ]
         for label, mutate in mutations:
             with self.subTest(label=label):
@@ -67,9 +84,90 @@ class ExportTests(unittest.TestCase):
             EXPORT.export(ROOT / 'tables', output)
             for name in EXPORT.BOOKS:
                 parsed = json.loads((output/(name+'.json')).read_text(encoding='utf-8'))
-                self.assertEqual(parsed, self.books[name])
+                self.assertEqual(parsed, EXPORT.bundle_books(self.books)[name])
                 self.assertIn('.xlsx/', parsed['sheets']['main'][0]['_source'])
-            self.assertFalse(list(output.glob('*.tmp')))
+            self.assertEqual(len({json.loads((output/(name+'.json')).read_text(encoding='utf-8'))['bundle_id'] for name in EXPORT.BOOKS}), 1)
+            self.assertFalse(list(output.glob('.export-*')))
+
+    def test_failed_publication_restores_entire_bundle(self):
+        for initially_present in (False, True):
+            with self.subTest(initially_present=initially_present), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                old = EXPORT.bundle_books(self.books)
+                if initially_present:
+                    EXPORT.write_bundle(old, output)
+                previous = {p.name: p.read_bytes() for p in output.glob('*.json')}
+                changed = deepcopy(self.books)
+                changed['cards']['sheets']['effects'][0]['amount'] = 7
+                new = EXPORT.bundle_books(changed)
+                self.assertNotEqual(new['cards']['bundle_id'], old['cards']['bundle_id'])
+                replace = EXPORT.os.replace
+                calls = 0
+
+                def fail_third(source, destination):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 3:
+                        raise PermissionError('injected failure on third published file')
+                    return replace(source, destination)
+
+                with patch.object(EXPORT.os, 'replace', side_effect=fail_third):
+                    with self.assertRaisesRegex(OSError, '原有整组 JSON 已恢复'):
+                        EXPORT.write_bundle(new, output)
+                self.assertEqual(previous, {p.name: p.read_bytes() for p in output.glob('*.json')})
+                self.assertFalse(list(output.glob('.export-*')))
+
+    def test_real_xlsx_single_cell_change_exports_18(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'tables'
+            output = Path(directory) / 'data'
+            source.mkdir()
+            for name in EXPORT.BOOKS:
+                shutil.copy2(ROOT/'tables'/(name+'.xlsx'), source/(name+'.xlsx'))
+            path = source / 'cards.xlsx'
+            original_book = EXPORT.read_book(path)
+            effect = next(r for r in original_book['sheets']['effects'] if r['card_id']=='heal' and not r['upgraded'])
+            self.assertEqual(effect['amount'], 14)
+            row_number = int(effect['_source'].split('row ')[1])
+            amount_column = list(effect).index('amount')
+            # Change exactly the numeric XML cell in a disposable XLSX copy.
+            with zipfile.ZipFile(path) as archive:
+                parts = {name: archive.read(name) for name in archive.namelist()}
+            rels = {r.attrib['Id']:r.attrib['Target'] for r in ET.fromstring(parts['xl/_rels/workbook.xml.rels'])}
+            sheet = next(s for s in ET.fromstring(parts['xl/workbook.xml']).find('s:sheets', EXPORT.NS) if s.attrib['name']=='effects')
+            target = rels[sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id']]
+            target = target.lstrip('/') if target.startswith('/') else 'xl/'+target
+            xml = ET.fromstring(parts[target])
+            address = chr(ord('A') + amount_column) + str(row_number)
+            cell = next(c for c in xml.findall('s:sheetData/s:row/s:c', EXPORT.NS) if c.attrib['r']==address)
+            cell.find('s:v', EXPORT.NS).text = '18'
+            parts[target] = ET.tostring(xml, encoding='utf-8', xml_declaration=True)
+            with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as archive:
+                for name, payload in parts.items():
+                    archive.writestr(name, payload)
+            edited = EXPORT.read_book(path)
+            changed_rows = [r for a,r in zip(original_book['sheets']['effects'],edited['sheets']['effects']) if a!=r]
+            self.assertEqual(len(changed_rows), 1)
+            self.assertEqual(changed_rows[0]['amount'], 18)
+            EXPORT.export(source, output)
+            result = json.loads((output/'cards.json').read_text(encoding='utf-8'))
+            self.assertEqual(next(r['amount'] for r in result['sheets']['effects'] if r['card_id']=='heal' and not r['upgraded']), 18)
+            self.assertEqual(next(r['amount'] for r in EXPORT.read_book(ROOT/'tables/cards.xlsx')['sheets']['effects'] if r['card_id']=='heal' and not r['upgraded']), 14)
+
+    def test_new_character_and_reusable_card_need_no_new_script(self):
+        books = deepcopy(self.books)
+        new_char = deepcopy(books['characters']['sheets']['main'][0])
+        new_char.update(id='other_tank_fixture')
+        books['characters']['sheets']['main'].append(new_char)
+        books['characters']['sheets']['starter'].append({'id':'other.starter', 'character_id':new_char['id'], 'card_id':'guard', 'count':2})
+        new_card = deepcopy(books['cards']['sheets']['main'][0])
+        new_card.update(id='other_slash_fixture')
+        books['cards']['sheets']['main'].append(new_card)
+        for upgraded in (False, True):
+            effect = deepcopy(next(r for r in books['cards']['sheets']['effects'] if r['card_id']=='slash' and r['upgraded']==upgraded))
+            effect.update(id=f'other.{upgraded}', card_id=new_card['id'])
+            books['cards']['sheets']['effects'].append(effect)
+        EXPORT.validate(books)
 
 
 if __name__ == '__main__':

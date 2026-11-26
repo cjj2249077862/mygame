@@ -20,7 +20,12 @@ func damage_value(source: Dictionary, target: Dictionary, base: float) -> int:
 
 
 func damage(
-	source: Dictionary, target: Dictionary, amount: int, multiplier: float = 1, bypass: bool = false
+	source: Dictionary,
+	target: Dictionary,
+	amount: int,
+	multiplier: float = 1,
+	bypass: bool = false,
+	damage_kind: String = "direct"
 ) -> int:
 	if target.hp <= 0:
 		return 0
@@ -34,13 +39,37 @@ func damage(
 	engine.events.append(
 		"damage", {"source": source.get("id", ""), "target": target.id, "amount": actual}
 	)
-	if target.hp == 0:
+	var killed: bool = target.hp == 0
+	(
+		engine
+		. events
+		. notify(
+			"damage_resolved",
+			{
+				"source": source,
+				"target": target,
+				"amount": actual,
+				"hp_loss": hp_loss,
+				"shield_loss": shield_loss,
+				"damage_kind": damage_kind,
+			}
+		)
+	)
+	# A nested damage notification can kill an initially surviving target and
+	# finish its death itself. Only this hit's lethal transition is handled here.
+	if killed:
 		engine.handle_death(target)
 	engine.refresh_targets()
 	return actual
 
 
-func heal(source: Dictionary, target: Dictionary, amount: int, attribute: bool = true) -> int:
+func heal(
+	source: Dictionary,
+	target: Dictionary,
+	amount: int,
+	attribute: bool = true,
+	heal_kind: String = "instant"
+) -> int:
 	if target.hp <= 0:
 		return 0
 	var actual := mini(amount, int(target.max_hp - target.hp))
@@ -49,6 +78,10 @@ func heal(source: Dictionary, target: Dictionary, amount: int, attribute: bool =
 		source.threat += roundi(actual * engine.data.rule("heal_threat"))
 	engine.events.append(
 		"heal", {"source": source.get("id", ""), "target": target.id, "amount": actual}
+	)
+	engine.events.notify(
+		"heal_resolved",
+		{"source": source, "target": target, "amount": actual, "heal_kind": heal_kind}
 	)
 	engine.refresh_targets()
 	return actual
@@ -80,13 +113,12 @@ func apply_card(
 					engine.events.append(
 						"shield", {"source": source.id, "target": target.id, "amount": amount}
 					)
+					engine.events.notify(
+						"shield_granted", {"source": source, "target": target, "amount": amount}
+					)
 			"interrupt":
 				if target.hp > 0:
-					var valid: bool = (
-						target.intent.get("kind") == "interruptible"
-						and target.immunity == 0
-						and not target.interrupted
-					)
+					var valid: bool = engine.can_interrupt(target.id)
 					if valid:
 						target.interrupted = true
 						target.interrupt_streak += 1
@@ -99,10 +131,17 @@ func apply_card(
 					engine.events.append(
 						"interrupt" if valid else "interrupt_failed", {"target": target.id}
 					)
+					engine.events.notify(
+						"interrupt_resolved", {"source": source, "target": target, "success": valid}
+					)
 			"dispel":
 				if target.hp > 0 and chosen_status != "":
 					target.statuses.erase(chosen_status)
 					engine.events.append("dispel", {"target": target.id, "status": chosen_status})
+					engine.events.notify(
+						"status_dispelled",
+						{"source": source, "target": target, "status": chosen_status}
+					)
 
 
 func add_status(
@@ -112,10 +151,20 @@ func add_status(
 		return
 	if not target.statuses.has(status):
 		target.statuses[status] = []
-	target.statuses[status].append(
-		{"source": source.id, "stacks": stacks, "multiplier": multiplier}
-	)
+	var merged := false
+	for contribution in target.statuses[status]:
+		if contribution.source == source.id and contribution.multiplier == multiplier:
+			contribution.stacks += stacks
+			merged = true
+			break
+	if not merged:
+		target.statuses[status].append(
+			{"source": source.id, "stacks": stacks, "multiplier": multiplier}
+		)
 	engine.events.append("status", {"target": target.id, "status": status, "amount": stacks})
+	engine.events.notify(
+		"status_applied", {"source": source, "target": target, "status": status, "amount": stacks}
+	)
 
 
 func tick_status(target: Dictionary, status: String) -> void:
@@ -127,9 +176,10 @@ func tick_status(target: Dictionary, status: String) -> void:
 	var raw: int = total * int(definition.per_stack)
 	var actual: int
 	if status == "regen":
-		actual = heal({}, target, raw, false)
+		actual = heal({}, target, raw, false, "regen")
 	else:
-		actual = damage({}, target, raw, 0, status == "poison")
+		actual = damage({}, target, raw, 0, status == "poison", status)
+	var threat_by_source: Dictionary = {}
 	for contribution in contributions:
 		var source: Dictionary = engine.find_unit(contribution.source)
 		if not source.is_empty() and source.hp > 0 and source.friendly:
@@ -138,9 +188,15 @@ func tick_status(target: Dictionary, status: String) -> void:
 				if status == "regen"
 				else float(contribution.multiplier)
 			)
-			source.threat += roundi(float(actual) * contribution.stacks / total * multiplier)
+			# Multiple applications by one caster must not each round a fractional share.
+			var share: float = float(actual) * contribution.stacks / total * multiplier
+			threat_by_source[source.id] = float(threat_by_source.get(source.id, 0.0)) + share
+	for source_id in threat_by_source:
+		var source: Dictionary = engine.find_unit(source_id)
+		source.threat += roundi(threat_by_source[source_id])
 	if target.hp > 0:
 		decay_status(target, status, int(definition.decay))
+	engine.events.notify("status_ticked", {"target": target, "status": status, "amount": actual})
 	engine.refresh_targets()
 
 

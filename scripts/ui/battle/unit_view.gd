@@ -2,13 +2,16 @@ extends Button
 
 signal unit_selected(unit_id: String)
 signal unit_hovered(unit_id: String)
+signal unit_unhovered(unit_id: String)
 
 var unit_id := ""
+var _selected := false
 
 
 func _ready() -> void:
 	pressed.connect(_on_pressed)
 	mouse_entered.connect(_on_hovered)
+	mouse_exited.connect(_on_unhovered)
 
 
 func render(
@@ -32,10 +35,12 @@ func render(
 	if unit.portrait != "":
 		$Content/Portrait.texture = load(unit.portrait)
 	var status_text: Array[String] = []
+	var status_help: Array[String] = []
 	for status in unit.statuses:
 		status_text.append(
 			"%s %d" % [data.text("status." + status), engine.status_count(unit, status)]
 		)
+		status_help.append(data.status_details(status))
 	$Content/Statuses.text = "　".join(status_text)
 	$Content/Intent.text = ""
 	if unit.hp <= 0:
@@ -64,16 +69,29 @@ func render(
 				}
 			)
 		)
-	button_pressed = selected
-	modulate = Color(1, 0.85, 0.5) if highlighted else Color.WHITE
+	_selected = selected
+	set_pressed_no_signal(selected)
+	modulate = get_theme_color("target_highlight", "UnitView") if highlighted else Color.WHITE
 	tooltip_text = (
-		$Content/Details.text + "\n" + $Content/Statuses.text + "\n" + $Content/Intent.text
+		$Content/Details.text
+		+ "\n"
+		+ $Content/Statuses.text
+		+ "\n"
+		+ "\n".join(status_help)
+		+ "\n"
+		+ $Content/Intent.text
 	)
 
 
 func _on_pressed() -> void:
+	# The controller owns selection; idle clicks must not leave a false pressed state.
+	set_pressed_no_signal(_selected)
 	unit_selected.emit(unit_id)
 
 
 func _on_hovered() -> void:
 	unit_hovered.emit(unit_id)
+
+
+func _on_unhovered() -> void:
+	unit_unhovered.emit(unit_id)

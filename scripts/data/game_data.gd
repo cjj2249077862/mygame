@@ -1,14 +1,28 @@
 extends RefCounted
 
-const Rules = preload("res://scripts/core/enums.gd")
 const BOOKS := ["cards", "characters", "encounters", "battle_rules", "texts_zh_cn"]
+const CONTRACT_PATH := "res://data/config_contract.json"
 var books: Dictionary = {}
 var errors: Array[String] = []
+var contract: Dictionary = {}
+
+
+func _load_contract() -> bool:
+	if not contract.is_empty():
+		return true
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(CONTRACT_PATH))
+	if not parsed is Dictionary or parsed.get("version") != 1:
+		errors.append(CONTRACT_PATH + ": invalid contract")
+		return false
+	contract = parsed
+	return true
 
 
 func load_directory(directory: String = "res://data") -> bool:
 	var candidate: Dictionary = {}
 	errors.clear()
+	if not _load_contract():
+		return false
 	for book in BOOKS:
 		var path := directory.path_join(book + ".json")
 		if not FileAccess.file_exists(path):
@@ -25,6 +39,15 @@ func load_directory(directory: String = "res://data") -> bool:
 		candidate[book] = parsed
 	if not errors.is_empty():
 		return false
+	var bundle_id = candidate[BOOKS[0]].get("bundle_id", "")
+	if not bundle_id is String or bundle_id.is_empty():
+		errors.append(directory + ": missing bundle_id; export the tables again")
+		return false
+	for book in BOOKS:
+		if candidate[book].get("bundle_id") != bundle_id:
+			errors.append(directory + "/" + book + ": mixed export bundles")
+	if not errors.is_empty():
+		return false
 	if not validate(candidate):
 		return false
 	books = candidate.duplicate(true)
@@ -33,13 +56,9 @@ func load_directory(directory: String = "res://data") -> bool:
 
 func validate(candidate: Dictionary) -> bool:
 	errors.clear()
-	var required := {
-		"cards": ["main", "effects"],
-		"characters": ["main", "starter"],
-		"encounters": ["main", "enemies", "intents"],
-		"battle_rules": ["main", "statuses"],
-		"texts_zh_cn": ["main"]
-	}
+	if not _load_contract():
+		return false
+	var required: Dictionary = contract.schemas
 	for book in required:
 		if (
 			not candidate.has(book)
@@ -77,10 +96,24 @@ func validate(candidate: Dictionary) -> bool:
 							key,
 							"missing text"
 						)
+	for row in rows("texts_zh_cn"):
+		_placeholders(row.text, row)
+	for key in contract.required_texts:
+		var row := definition("texts_zh_cn", key)
+		_check(
+			not row.is_empty(), {"_source": "texts_zh_cn.xlsx/main"}, key, "missing required text"
+		)
+		if not row.is_empty():
+			_check(
+				_same_members(_placeholders(row.text, row), contract.required_texts[key]),
+				row,
+				"text",
+				"text/program placeholder mismatch"
+			)
 	for c in rows("cards"):
 		_numeric(c, "cost", 0, true)
 		_check(c.get("target") in ["enemy", "ally", "self"], c, "target", "invalid target")
-		_check(c.get("role") in ["", "tank", "healer", "assassin"], c, "role", "invalid role")
+		_check(c.get("role") in contract.roles + [""], c, "role", "invalid role")
 		_check(
 			c.get("owner") == "" or not definition("characters", str(c.get("owner"))).is_empty(),
 			c,
@@ -101,21 +134,38 @@ func validate(candidate: Dictionary) -> bool:
 				_check(list[i].order == i + 1, list[i], "order", "non-contiguous effects")
 				if list[i].get("parameter", "") != "":
 					parameters.append(list[i].parameter)
-			var regex := RegEx.new()
-			regex.compile("\\{(\\w+)\\}")
-			for result in regex.search_all(text(c.get("description_key", ""))):
+			var unique: Dictionary = {}
+			for parameter in parameters:
 				_check(
-					result.get_string(1) in parameters, c, "description_key", "unknown placeholder"
+					not unique.has(parameter),
+					c,
+					"effects.parameter",
+					"duplicate parameter overwrites card value"
 				)
+				unique[parameter] = true
+			_check(
+				_same_members(_placeholders(text(c.description_key), c), parameters),
+				c,
+				"description_key",
+				"effect/template parameter mismatch"
+			)
 	for e in rows("cards", "effects"):
 		var c := definition("cards", str(e.get("card_id")))
 		_check(not c.is_empty(), e, "card_id", "missing card")
-		_check(e.get("kind") in Rules.EFFECTS, e, "kind", "unsupported effect")
+		_check(e.get("kind") in contract.effects, e, "kind", "unsupported effect")
 		_check(e.get("upgraded") is bool, e, "upgraded", "must be boolean")
 		_check(e.get("target") == "selected", e, "target", "unsupported target")
+		_check(e.status == "", e, "status", "card status effects not supported")
 		for key in ["amount", "hits", "order"]:
 			_numeric(e, key, 0 if key == "amount" else 1, true)
 		_numeric(e, "threat_mult")
+		_check(e.kind == "damage" or e.hits == 1, e, "hits", "non-damage effects settle once")
+		_check(
+			e.kind not in ["interrupt", "dispel"] or (e.amount == 1 and e.parameter == ""),
+			e,
+			"amount",
+			"interrupt/dispel has no numeric display parameter and settles once"
+		)
 		if not c.is_empty():
 			_check(
 				(
@@ -126,17 +176,31 @@ func validate(candidate: Dictionary) -> bool:
 				"kind",
 				"effect/target mismatch"
 			)
+	_validate_starter_cards()
+	for id in contract.initial_lineup:
+		_check(
+			not definition("characters", id).is_empty(),
+			{"_source": "characters.xlsx/main"},
+			"id",
+			"missing initial character: " + id
+		)
 	for u in rows("characters"):
 		_numeric(u, "max_hp", 1, true)
 		_numeric(u, "strength", 0, true)
 		_numeric(u, "passive_amount", 0, true)
-		_check(u.get("role") in Rules.ROLES, u, "role", "unknown role")
-		_check(
-			u.get("passive") in ["first_damage", "first_heal", "first_shield"],
-			u,
-			"passive",
-			"unsupported passive"
-		)
+		_check(u.get("role") in contract.roles, u, "role", "unknown role")
+		_check(u.get("passive") in contract.passives, u, "passive", "unsupported passive")
+		var has_starter := false
+		for entry in rows("characters", "starter"):
+			has_starter = has_starter or entry.character_id == u.id
+		_check(has_starter, u, "starter", "character has no starting cards")
+		if u.portrait != "":
+			_check(
+				u.portrait.begins_with("res://") and FileAccess.file_exists(u.portrait),
+				u,
+				"portrait",
+				"missing portrait resource"
+			)
 	for row in rows("characters", "starter"):
 		var c := definition("cards", str(row.get("card_id")))
 		var u := definition("characters", str(row.get("character_id")))
@@ -152,6 +216,12 @@ func validate(candidate: Dictionary) -> bool:
 	for row in rows("encounters", "enemies"):
 		for key in ["max_hp", "strength", "interrupt_threshold", "immunity_count"]:
 			_numeric(row, key, 1 if key == "max_hp" else 0, true)
+		_check(
+			(row.interrupt_threshold > 0) == (row.immunity_count > 0),
+			row,
+			"immunity_count",
+			"threshold and immunity must be enabled together"
+		)
 		_check(not enemy_intents(row.id).is_empty(), row, "intents", "missing intent")
 		var ordered := enemy_intents(row.id)
 		for i in range(ordered.size()):
@@ -180,6 +250,7 @@ func validate(candidate: Dictionary) -> bool:
 		)
 		for key in ["amount", "stacks", "hits", "order"]:
 			_numeric(row, key, 1 if key in ["hits", "order"] else 0, true)
+		_check((row.status != "") == (row.stacks > 0), row, "stacks", "status and stacks disagree")
 	for row in rows("encounters"):
 		_check(
 			row.get("enemies") is String and not row.get("enemies", "").is_empty(),
@@ -207,48 +278,40 @@ func validate(candidate: Dictionary) -> bool:
 			"order",
 			"non-contiguous encounters"
 		)
-	var required_rules := [
-		"party_size",
-		"base_energy",
-		"draw_count",
-		"hand_limit",
-		"initial_tank_threat",
-		"initial_other_threat",
-		"heal_threat",
-		"post_battle_revive",
-		"reward_count",
-		"weak_multiplier",
-		"vulnerable_multiplier",
-		"starting_gold"
-	]
-	for key in required_rules:
+	var rule_ids: Array = []
+	for row in rows("battle_rules"):
+		rule_ids.append(row.id)
+	_check(
+		_same_members(rule_ids, contract.rules.keys()),
+		{"_source": "battle_rules.xlsx/main"},
+		"id",
+		"missing or unknown rules"
+	)
+	for key in contract.rules:
 		var row := definition("battle_rules", key)
 		_check(not row.is_empty(), row, key, "missing rule")
-		_numeric(
+		if row.is_empty():
+			continue
+		var spec: Dictionary = contract.rules[key]
+		_numeric(row, "value", spec.min, spec.get("integer", false))
+		_check(not spec.has("max") or row.value <= spec.max, row, "value", "exceeds maximum")
+		_check(
+			not spec.get("exclusive_min", false) or row.value > spec.min,
 			row,
 			"value",
-			0,
-			(
-				key
-				not in [
-					"heal_threat", "post_battle_revive", "weak_multiplier", "vulnerable_multiplier"
-				]
-			)
+			"must exceed minimum"
 		)
-	_check(rule("party_size") == 3, {}, "party_size", "requires three heroes")
+	var status_ids: Array = []
+	for row in rows("battle_rules", "statuses"):
+		status_ids.append(row.id)
 	_check(
-		rule("post_battle_revive") > 0 and rule("post_battle_revive") <= 1,
-		{},
-		"post_battle_revive",
-		"invalid ratio"
+		_same_members(status_ids, contract.statuses),
+		{"_source": "battle_rules.xlsx/statuses"},
+		"id",
+		"missing or unknown statuses"
 	)
 	for row in rows("battle_rules", "statuses"):
-		_check(
-			row.id in ["poison", "burn", "regen", "weak", "vulnerable"],
-			row,
-			"id",
-			"unsupported status"
-		)
+		_check(row.id in contract.statuses, row, "id", "unsupported status")
 		_check(row.get("dispellable") is bool, row, "dispellable", "must be boolean")
 		_numeric(row, "per_stack", 1, true)
 		_numeric(row, "decay", 1, true)
@@ -264,29 +327,7 @@ func validate(candidate: Dictionary) -> bool:
 
 
 func _validate_shapes(candidate: Dictionary) -> bool:
-	var schemas := {
-		"cards":
-		{
-			"main":
-			"s:id,name_key,description_key,role,owner,target,rarity;b:reward,exhaust,retain;n:cost",
-			"effects":
-			"s:id,card_id,kind,status,target,parameter;b:upgraded;n:order,amount,hits,threat_mult"
-		},
-		"characters":
-		{
-			"main": "s:id,name_key,role,passive,portrait;n:max_hp,strength,passive_amount",
-			"starter": "s:id,character_id,card_id;n:count"
-		},
-		"encounters":
-		{
-			"main": "s:id,name_key,enemies;n:order,gold",
-			"enemies": "s:id,name_key;n:max_hp,strength,interrupt_threshold,immunity_count",
-			"intents": "s:id,enemy_id,kind,status;n:order,amount,hits,stacks"
-		},
-		"battle_rules":
-		{"main": "s:id;n:value", "statuses": "s:id,name_key;b:dispellable;n:per_stack,decay"},
-		"texts_zh_cn": {"main": "s:id,text"}
-	}
+	var schemas: Dictionary = contract.schemas
 	for book in schemas:
 		_check(candidate[book].get("version") == 1, {}, book, "unsupported schema version")
 		for sheet in candidate[book].sheets:
@@ -309,6 +350,76 @@ func _validate_shapes(candidate: Dictionary) -> bool:
 						)
 						_check(valid, row, field, "missing field or wrong type")
 	return errors.is_empty()
+
+
+func _validate_starter_cards() -> void:
+	for id in contract.starter_cards:
+		var card := definition("cards", id)
+		_check(
+			not card.is_empty(),
+			{"_source": "cards.xlsx/main"},
+			id,
+			"missing confirmed starter card"
+		)
+		if card.is_empty():
+			continue
+		var spec: Dictionary = contract.starter_cards[id]
+		for field in ["role", "owner", "target"]:
+			_check(
+				card[field] == spec[field],
+				card,
+				field,
+				"starter card caster/target differs from confirmed rule"
+			)
+		var base := card_effects(id, false)
+		var upgraded := card_effects(id, true)
+		var count_valid: bool = (
+			base.size() == upgraded.size() and base.size() == spec.effects.size()
+		)
+		_check(count_valid, card, "effects", "starter base/upgrade effect count mismatch")
+		if not count_valid:
+			continue
+		for i in range(base.size()):
+			for field in spec.effects[i]:
+				_check(
+					base[i][field] == spec.effects[i][field],
+					base[i],
+					field,
+					"starter effect differs from confirmed rule"
+				)
+			for field in contract.fixed_upgrade_fields:
+				_check(
+					base[i][field] == upgraded[i][field],
+					upgraded[i],
+					field,
+					"upgrade changes confirmed mechanism"
+				)
+			_check(
+				upgraded[i].amount >= base[i].amount,
+				upgraded[i],
+				"amount",
+				"upgrade must not reduce base value"
+			)
+
+
+func _same_members(left: Array, right: Array) -> bool:
+	var a := left.duplicate()
+	var b := right.duplicate()
+	a.sort()
+	b.sort()
+	return a == b
+
+
+func _placeholders(template: String, row: Dictionary) -> Array:
+	_check(not template.strip_edges().is_empty(), row, "text", "empty text")
+	var pattern := RegEx.new()
+	pattern.compile("\\{(\\w+)\\}")
+	var names: Dictionary = {}
+	for found in pattern.search_all(template):
+		names[found.get_string(1)] = true
+	var rest := pattern.sub(template, "", true)
+	_check(not rest.contains("{") and not rest.contains("}"), row, "text", "malformed placeholder")
+	return names.keys()
 
 
 func rows(book: String, sheet: String = "main") -> Array:
@@ -353,6 +464,31 @@ func card_text(copy: Dictionary) -> String:
 			"description": text(c.description_key, values)
 		}
 	)
+
+
+func card_details(copy: Dictionary) -> String:
+	var card := definition("cards", copy.get("card_id", ""))
+	if card.is_empty():
+		return text("error.card")
+	var lines: Array[String] = [card_text(copy)]
+	for flag in ["retain", "exhaust"]:
+		if card[flag]:
+			lines.append(text("keyword." + flag))
+	for effect in card_effects(card.id, copy.get("upgraded", false)):
+		if effect.kind == "interrupt":
+			lines.append(text("keyword.interrupt"))
+			break
+	return "\n".join(lines)
+
+
+func status_details(status: String) -> String:
+	var spec := definition("battle_rules", status, "statuses")
+	if spec.is_empty():
+		return status
+	var values := {"per_stack": spec.per_stack, "decay": spec.decay}
+	if status in ["weak", "vulnerable"]:
+		values["percent"] = rule(status + "_multiplier") * 100.0
+	return text("status_desc." + status, values)
 
 
 func enemy_intents(id: String) -> Array:

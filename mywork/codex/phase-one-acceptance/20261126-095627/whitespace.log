@@ -1,0 +1,10 @@
+warning: in the working copy of 'data/battle_rules.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/cards.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/characters.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/encounters.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/texts_zh_cn.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/battle_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/run/reward_panel.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_export_data.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'themes/game_theme.tres', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/export_data.py', LF will be replaced by CRLF the next time Git touches it

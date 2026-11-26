@@ -496,7 +496,58 @@
         "id": "ui.status_effect",
         "text": "持续效果",
         "_source": "texts_zh_cn.xlsx/main/row 100"
+      },
+      {
+        "id": "ui.preview_cost",
+        "text": "费用 {cost}　剩余能量 {energy}",
+        "_source": "texts_zh_cn.xlsx/main/row 101"
+      },
+      {
+        "id": "ui.preview_dispel",
+        "text": "将驱散：{status}",
+        "_source": "texts_zh_cn.xlsx/main/row 102"
+      },
+      {
+        "id": "keyword.retain",
+        "text": "保留：回合结束时留在手牌，仍占用手牌上限。",
+        "_source": "texts_zh_cn.xlsx/main/row 103"
+      },
+      {
+        "id": "keyword.exhaust",
+        "text": "消耗：打出后本场不再进入抽牌循环，下一场战斗恢复。",
+        "_source": "texts_zh_cn.xlsx/main/row 104"
+      },
+      {
+        "id": "keyword.interrupt",
+        "text": "打断：取消敌人本回合的可打断读条；对普通行动、不可打断机制及免疫读条无效。",
+        "_source": "texts_zh_cn.xlsx/main/row 105"
+      },
+      {
+        "id": "status_desc.poison",
+        "text": "中毒：回合末每层造成 {per_stack} 点伤害，无视护盾；结算后减少 {decay} 层。",
+        "_source": "texts_zh_cn.xlsx/main/row 106"
+      },
+      {
+        "id": "status_desc.burn",
+        "text": "灼烧：回合末每层造成 {per_stack} 点伤害，先扣护盾；结算后减少 {decay} 层。",
+        "_source": "texts_zh_cn.xlsx/main/row 107"
+      },
+      {
+        "id": "status_desc.regen",
+        "text": "再生：回合末每层恢复最多 {per_stack} 点生命，不能复活；结算后减少 {decay} 层。",
+        "_source": "texts_zh_cn.xlsx/main/row 108"
+      },
+      {
+        "id": "status_desc.weak",
+        "text": "虚弱：直接伤害变为原来的 {percent}%；回合末减少 {decay} 回合。",
+        "_source": "texts_zh_cn.xlsx/main/row 109"
+      },
+      {
+        "id": "status_desc.vulnerable",
+        "text": "易伤：受到的直接伤害变为原来的 {percent}%；回合末减少 {decay} 回合。",
+        "_source": "texts_zh_cn.xlsx/main/row 110"
       }
     ]
-  }
+  },
+  "bundle_id": "6ae40c7cb829a765207994ae4bb75e5cb830842bd19c88e7924b99d12daeeb93"
 }

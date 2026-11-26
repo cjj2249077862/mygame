@@ -76,7 +76,7 @@
         "amount": 5,
         "hits": 1,
         "status": "weak",
-        "stacks": 1,
+        "stacks": 2,
         "_source": "encounters.xlsx/intents/row 3"
       },
       {
@@ -135,5 +135,6 @@
         "_source": "encounters.xlsx/intents/row 8"
       }
     ]
-  }
+  },
+  "bundle_id": "6ae40c7cb829a765207994ae4bb75e5cb830842bd19c88e7924b99d12daeeb93"
 }

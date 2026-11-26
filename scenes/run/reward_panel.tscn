@@ -2,6 +2,7 @@
 [ext_resource type="Script" path="res://scripts/ui/run/reward_panel.gd" id="1"]
 [node name="RewardPanel" type="PanelContainer"]
 script = ExtResource("1")
+card_minimum_size = Vector2(220, 150)
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 2

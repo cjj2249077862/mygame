@@ -13,6 +13,7 @@ var rng := RandomNumberGenerator.new()
 var events := Events.new()
 var resolver: RefCounted
 var state: Dictionary = {"phase": Types.BattlePhase.IDLE}
+var _publishing := false
 
 
 func _init(game_data: RefCounted) -> void:
@@ -21,6 +22,8 @@ func _init(game_data: RefCounted) -> void:
 
 
 func start(party: Array, deck: Array, encounter_id: String, random: RandomNumberGenerator) -> void:
+	if _publishing:
+		return
 	rng = random
 	events.clear()
 	state = {
@@ -37,7 +40,6 @@ func start(party: Array, deck: Array, encounter_id: String, random: RandomNumber
 	for hero in state.heroes:
 		hero.shield = 0
 		hero.statuses = {}
-		hero.passive_used = false
 		hero.threat = int(
 			data.rule("initial_tank_threat" if hero.role == "tank" else "initial_other_threat")
 		)
@@ -46,6 +48,7 @@ func start(party: Array, deck: Array, encounter_id: String, random: RandomNumber
 		var definition: Dictionary = data.definition("encounters", enemy_id, "enemies")
 		state.enemies.append(Models.unit(definition, "enemy_%d" % state.enemies.size(), false))
 	shuffle(state.draw)
+	events.notify("battle_started", {"units": state.heroes + state.enemies})
 	_begin_turn()
 	_publish()
 
@@ -81,10 +84,25 @@ func legal_targets(copy_id: int, caster_id: String) -> Array[String]:
 		return result
 	var c: Dictionary = data.definition("cards", find_card(copy_id).card_id)
 	var candidates: Array = state.enemies if c.target == "enemy" else state.heroes
+	var interrupt_only := _is_pure_interrupt(find_card(copy_id))
 	for unit in candidates:
 		if unit.hp > 0 and (c.target != "self" or unit.id == caster_id):
+			if interrupt_only and not can_interrupt(unit.id):
+				continue
 			result.append(unit.id)
 	return result
+
+
+func can_interrupt(unit_id: String) -> bool:
+	var unit := find_unit(unit_id)
+	return (
+		not unit.is_empty()
+		and not unit.friendly
+		and unit.hp > 0
+		and unit.intent.get("kind") == "interruptible"
+		and unit.immunity == 0
+		and not unit.interrupted
+	)
 
 
 func dispel_options(copy_id: int, target_id: String) -> Array[String]:
@@ -107,7 +125,7 @@ func dispel_options(copy_id: int, target_id: String) -> Array[String]:
 func validate_play(
 	copy_id: int, caster_id: String, target_id: String, chosen_status: String = ""
 ) -> String:
-	if state.phase != Types.BattlePhase.PLAYER:
+	if _publishing or state.phase != Types.BattlePhase.PLAYER:
 		return "error.phase"
 	var copy := find_card(copy_id)
 	if copy.is_empty():
@@ -192,10 +210,11 @@ func has_playable_card() -> bool:
 
 
 func end_turn() -> String:
-	if state.phase != Types.BattlePhase.PLAYER:
+	if _publishing or state.phase != Types.BattlePhase.PLAYER:
 		return "error.phase"
 	events.clear()
 	state.phase = Types.BattlePhase.RESOLVING
+	events.notify("turn_ended", {"turn": state.turn, "units": state.heroes + state.enemies})
 	for copy in state.hand.duplicate():
 		if not data.definition("cards", copy.card_id).retain:
 			state.hand.erase(copy)
@@ -249,6 +268,7 @@ func handle_death(unit: Dictionary) -> void:
 				if _casters_for_definition(data.definition("cards", copy.card_id)).is_empty():
 					state[pile].erase(copy)
 					state.removed.append(copy)
+	events.notify("unit_died", {"target": unit})
 
 
 func refresh_targets() -> void:
@@ -319,6 +339,16 @@ func _casters_for_definition(c: Dictionary) -> Array[String]:
 	return result
 
 
+func _is_pure_interrupt(copy: Dictionary) -> bool:
+	var effects: Array = data.card_effects(copy.card_id, copy.upgraded)
+	if effects.is_empty():
+		return false
+	for effect in effects:
+		if effect.kind != "interrupt":
+			return false
+	return true
+
+
 func _execute_card(
 	copy_id: int, caster_id: String, target_id: String, chosen_status: String
 ) -> void:
@@ -333,7 +363,9 @@ func _execute_card(
 		chosen_status = options[0]
 	state.energy -= int(c.cost)
 	state.hand.erase(copy)
-	var effects: Array = events.prepare_card(caster, c, data.card_effects(c.id, copy.upgraded))
+	var effects: Array = events.prepare_card(
+		caster, target, c, data.card_effects(c.id, copy.upgraded)
+	)
 	resolver.apply_card(caster, target, effects, chosen_status)
 	# Played cards cannot be drawn again until their whole action has finished.
 	if c.exhaust:
@@ -343,6 +375,9 @@ func _execute_card(
 	if not c.exhaust and _casters_for_definition(c).is_empty():
 		state.discard.erase(copy)
 		state.removed.append(copy)
+	events.notify(
+		"card_resolved", {"caster": caster, "target": target, "definition": c, "copy": copy}
+	)
 	if not _check_end():
 		state.phase = Types.BattlePhase.PLAYER
 
@@ -352,7 +387,6 @@ func _begin_turn() -> void:
 	state.energy = int(data.rule("base_energy"))
 	for unit in state.heroes + state.enemies:
 		unit.shield = 0
-		unit.passive_used = false
 	for enemy in state.enemies:
 		if enemy.hp <= 0:
 			continue
@@ -361,6 +395,7 @@ func _begin_turn() -> void:
 		enemy.intent = intents[(state.turn - 1) % intents.size()].duplicate(true)
 	draw_cards(int(data.rule("draw_count")))
 	refresh_targets()
+	events.notify("turn_started", {"turn": state.turn, "units": state.heroes + state.enemies})
 	state.phase = Types.BattlePhase.PLAYER
 	events.append("start", {"turn": state.turn})
 
@@ -376,11 +411,21 @@ func _check_end() -> bool:
 		unit.shield = 0
 		unit.statuses.clear()
 		unit.threat = 0
+	events.notify("battle_ended", {"victory": victory, "units": state.heroes + state.enemies})
 	events.append("win" if victory else "loss")
 	return true
 
 
 func _publish() -> void:
-	settled.emit(events.records.duplicate(true), snapshot())
-	if state.phase in [Types.BattlePhase.WON, Types.BattlePhase.LOST]:
-		battle_ended.emit(state.phase == Types.BattlePhase.WON)
+	if _publishing:
+		return
+	var result := snapshot()
+	var records := events.records.duplicate(true)
+	var result_phase: int = result.phase
+	# Signal callbacks can replace the run's battle. Publish this action's captured
+	# result once and reject new commands on this engine until callbacks return.
+	_publishing = true
+	settled.emit(records, result)
+	if result_phase in [Types.BattlePhase.WON, Types.BattlePhase.LOST]:
+		battle_ended.emit(result_phase == Types.BattlePhase.WON)
+	_publishing = false

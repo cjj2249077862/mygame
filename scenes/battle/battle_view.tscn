@@ -102,19 +102,30 @@ layout_mode = 2
 size = Vector2i(500, 160)
 
 [node name="DispelConfirm" type="ConfirmationDialog" parent="."]
-size = Vector2i(400, 160)
+size = Vector2i(640, 270)
 
-[node name="Choices" type="OptionButton" parent="DispelConfirm"]
+[node name="Content" type="VBoxContainer" parent="DispelConfirm"]
 offset_left = 20.0
-offset_top = 40.0
-offset_right = 380.0
-offset_bottom = 90.0
+offset_top = 20.0
+offset_right = 620.0
+offset_bottom = 210.0
+
+[node name="Choices" type="OptionButton" parent="DispelConfirm/Content"]
+layout_mode = 2
+
+[node name="Preview" type="Label" parent="DispelConfirm/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 100)
+autowrap_mode = 3
 
 [node name="Piles" type="AcceptDialog" parent="."]
 size = Vector2i(800, 550)
 
 [node name="Text" type="RichTextLabel" parent="Piles"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_left = 12.0
 offset_top = 12.0
-offset_right = 788.0
-offset_bottom = 490.0
+offset_right = -12.0
+offset_bottom = -60.0

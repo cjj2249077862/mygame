@@ -37,6 +37,9 @@ func _on_start() -> void:
 
 
 func _on_battle_created(engine: RefCounted) -> void:
+	$Reward.hide()
+	$Result.hide()
+	$Battle.show()
 	$Battle.bind_battle(engine, data, run.deck)
 	$Battle.gold = run.gold
 
@@ -44,6 +47,8 @@ func _on_battle_created(engine: RefCounted) -> void:
 func _on_run_changed() -> void:
 	if $Battle.locked:
 		return
+	if run.phase != Types.RunPhase.BATTLE:
+		$Battle.leave_battle()
 	$Battle.visible = run.phase == Types.RunPhase.BATTLE
 	$Reward.visible = run.phase == Types.RunPhase.REWARD
 	$Result.visible = run.phase in [Types.RunPhase.WON, Types.RunPhase.LOST]
