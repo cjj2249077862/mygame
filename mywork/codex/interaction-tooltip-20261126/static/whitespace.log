@@ -1,0 +1,13 @@
+warning: in the working copy of 'assets/characters/boss_iron_warden_full.png.import', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'assets/characters/enemies_chapter_one_full.png.import', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/battle_rules.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/maps.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/presentation.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/battle_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/unit_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/main.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/data/game_data.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/battle/unit_view.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/presentation/battle_feedback.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/accept_phase_three.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/export_presentation.py', LF will be replaced by CRLF the next time Git touches it

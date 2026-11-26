@@ -557,25 +557,38 @@ func intent_preview(enemy_id: String) -> Dictionary:
 		return {}
 	var description: Array[String] = []
 	var target_ids: Array[String] = []
+	var effects: Array[Dictionary] = []
+	var all_targets := false
 	var target := find_unit(enemy.target_id)
 	for effect in _enemy_effects(enemy):
 		var preview_effect: Dictionary = effect.duplicate(true)
 		var targets := effect_targets(enemy, target, effect)
+		var detail: Dictionary = effect.duplicate(true)
+		detail["target_ids"] = []
+		detail["amounts"] = {}
+		all_targets = (
+			all_targets or effect.get("target", "selected") in ["all_allies", "all_enemies"]
+		)
 		for unit in targets:
+			detail.target_ids.append(unit.id)
 			if unit.id not in target_ids:
 				target_ids.append(unit.id)
 		if effect.kind == "damage":
 			for unit in targets:
 				preview_effect.amount = resolver.damage_value(enemy, unit, effect.amount)
+				detail.amounts[unit.id] = preview_effect.amount
 				description.append(
 					data.text(unit.name_key) + "：" + data.effect_text(preview_effect)
 				)
 		else:
 			description.append(data.effect_text(preview_effect))
+		effects.append(detail)
 	var definition: Dictionary = data.definition("encounters", enemy.definition_id, "enemies")
 	return {
 		"kind": enemy.intent.get("kind", "normal"),
 		"target_ids": target_ids,
+		"effects": effects,
+		"all_targets": all_targets,
 		"description": "；".join(description),
 		"interruptible": enemy.intent.get("kind") == "interruptible",
 		"immune": enemy.immunity > 0,

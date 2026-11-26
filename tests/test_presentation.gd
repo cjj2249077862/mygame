@@ -315,7 +315,11 @@ func _test_cards_and_prices() -> void:
 		"Illustrated shop offer keeps the actual gold price visible"
 	)
 	expect(
-		button.tooltip_text == offer.description and button.icon != null and not button.disabled,
+		(
+			button.get_meta("help_native_text", "") == offer.description
+			and button.icon != null
+			and not button.disabled
+		),
 		"Shop art does not replace the full description or purchasing state"
 	)
 	card.queue_free()
@@ -588,6 +592,11 @@ func _check_hand_layout(app: Control, view: Control, count: int) -> void:
 	var hand: Control = view.hand
 	var hand_bounds: Rect2 = hand.get_global_rect()
 	var viewport_bounds: Rect2 = app.get_viewport_rect()
+	var reset_pointer: InputEventMouseMotion = InputEventMouseMotion.new()
+	reset_pointer.position = hand_bounds.position - Vector2(20, 20)
+	reset_pointer.global_position = reset_pointer.position
+	root.push_input(reset_pointer, true)
+	await create_timer(float(hand.layout_duration) + 0.04).timeout
 	for path in [
 		"Margin/Content/HandScroll",
 		"Margin/Content/Actions",
@@ -610,14 +619,20 @@ func _check_hand_layout(app: Control, view: Control, count: int) -> void:
 		)
 	for card in hand.get_children():
 		var rest_bounds: Rect2 = _transformed_bounds(card)
-		card.mouse_entered.emit()
+		var enter: InputEventMouseMotion = InputEventMouseMotion.new()
+		enter.position = hand.help_anchor_rect(card).get_center()
+		enter.global_position = enter.position
+		root.push_input(enter, true)
 		await create_timer(float(hand.layout_duration) + 0.04).timeout
 		_expect_corners_inside(hand_bounds, card, "Raised fan card corners stay inside Hand")
 		expect(
 			card.scale.x > 1.0 and _transformed_bounds(card).position.y < rest_bounds.position.y,
 			"Hover raises and enlarges the full card"
 		)
-		card.mouse_exited.emit()
+		var leave: InputEventMouseMotion = InputEventMouseMotion.new()
+		leave.position = hand_bounds.position - Vector2(20, 20)
+		leave.global_position = leave.position
+		root.push_input(leave, true)
 		await create_timer(float(hand.layout_duration) + 0.04).timeout
 	var ids_after: Array[int] = []
 	for card in hand.get_children():

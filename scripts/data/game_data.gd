@@ -13,9 +13,12 @@ const BOOKS := [
 	"difficulty"
 ]
 const CONTRACT_PATH := "res://data/config_contract.json"
+const PRESENTATION_PATH := "res://data/presentation.json"
 var books: Dictionary = {}
 var errors: Array[String] = []
 var contract: Dictionary = {}
+var _presentation_texts: Dictionary = {}
+var _presentation_loaded := false
 
 
 func _load_contract() -> bool:
@@ -1259,14 +1262,8 @@ func card_details(copy: Dictionary) -> String:
 
 func _effect_details(effects: Array) -> Array[String]:
 	var lines: Array[String] = []
-	var explained: Array[String] = []
-	for effect in effects:
-		if effect.kind in ["interrupt", "revive"] and effect.kind not in explained:
-			lines.append(text("keyword." + effect.kind, {"limit": rule("combat_revive_limit")}))
-			explained.append(effect.kind)
-		elif effect.kind == "apply_status" and effect.status not in explained:
-			lines.append(status_details(effect.status))
-			explained.append(effect.status)
+	for section in _effect_sections(effects):
+		lines.append(str(section.title) + "：" + str(section.body))
 	return lines
 
 
@@ -1299,6 +1296,271 @@ func enemy_intents(id: String, pool_id: String = "") -> Array:
 			result.append(row.duplicate(true))
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.order < b.order)
 	return result
+
+
+# Presentation text is deliberately independent of gameplay validation/bundle IDs.
+func presentation_text(key: String, values: Dictionary = {}) -> String:
+	if not _presentation_loaded:
+		_presentation_loaded = true
+		if FileAccess.file_exists(PRESENTATION_PATH):
+			var parsed: Variant = JSON.parse_string(
+				FileAccess.get_file_as_string(PRESENTATION_PATH)
+			)
+			if (
+				parsed is Dictionary
+				and parsed.get("version") == 1
+				and parsed.get("texts") is Dictionary
+			):
+				for text_key in parsed.texts:
+					if text_key is String and parsed.texts[text_key] is String:
+						_presentation_texts[text_key] = parsed.texts[text_key]
+	var rendered: Dictionary = values.duplicate()
+	for parameter in rendered:
+		var value: Variant = rendered[parameter]
+		if value is float and is_finite(value) and value == floorf(value):
+			rendered[parameter] = int(value)
+	return str(_presentation_texts.get(key, key)).format(rendered)
+
+
+func card_sections(copy: Dictionary) -> Array[Dictionary]:
+	var card: Dictionary = definition("cards", str(copy.get("card_id", "")))
+	if card.is_empty():
+		return []
+	var result: Array[Dictionary] = []
+	for flag in ["retain", "exhaust"]:
+		if bool(card.get(flag, false)):
+			_append_help(result, _keyword_section(flag))
+	for section in _effect_sections(card_effects(card.id, bool(copy.get("upgraded", false)))):
+		_append_help(result, section)
+	return result
+
+
+func status_sections(status: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	_append_help(result, _keyword_section(status))
+	return result
+
+
+func relic_sections(id: String) -> Array[Dictionary]:
+	var relic: Dictionary = definition("relics", id)
+	if relic.is_empty():
+		return [_help_section("relic", id, "", "main")]
+	var values: Dictionary = {}
+	var effects: Array = []
+	for trigger in _matching_rows("relics", "triggers", "relic_id", id):
+		for effect in relic_effects(trigger.effect_group):
+			effects.append(effect)
+			if effect.get("parameter", "") != "":
+				values[effect.parameter] = (
+					effect.amount * contract.get("parameter_scales", {}).get(effect.kind, 1)
+				)
+	var result: Array[Dictionary] = [
+		_help_section("relic", text(relic.name_key), text(relic.description_key, values), "main")
+	]
+	for section in _effect_sections(effects):
+		_append_help(result, section)
+	return result
+
+
+func unit_sections(unit: Dictionary, _engine: RefCounted = null) -> Array[Dictionary]:
+	if unit.is_empty():
+		return []
+	var result: Array[Dictionary] = []
+	var character: Dictionary = definition("characters", str(unit.get("definition_id", "")))
+	if not character.is_empty() and str(character.get("passive", "")) != "":
+		var passive_key: String = "hover.passive." + str(character.passive)
+		var passive_text: String = presentation_text(
+			passive_key, {"amount": character.passive_amount}
+		)
+		if passive_text != passive_key:
+			result.append(
+				_help_section(
+					"passive", presentation_text("hover.title.passive"), passive_text, "main"
+				)
+			)
+	if bool(unit.get("friendly", false)):
+		result.append(
+			_help_section(
+				"revive_quota",
+				"",
+				text(
+					"ui.revive_quota",
+					{
+						"used": unit.get("revives_used", 0),
+						"limit": unit.get("revive_limit", rule("combat_revive_limit"))
+					}
+				),
+				"main"
+			)
+		)
+	for status in unit.get("statuses", {}):
+		var count := 0
+		for contribution in unit.statuses[status]:
+			count += int(contribution.get("stacks", 0))
+		var section: Dictionary = _keyword_section(str(status))
+		if not section.is_empty():
+			section.title = presentation_text(
+				"hover.status.count", {"name": section.title, "count": count}
+			)
+			_append_help(result, section)
+	for mark in unit.get("marks", []):
+		if mark.get("kind") == "bomb":
+			var section: Dictionary = _keyword_section("bomb")
+			section.body = (
+				text("ui.bomb_snapshot", {"remaining": mark.remaining, "amount": mark.amount})
+				+ "\n"
+				+ str(section.body)
+			)
+			_append_help(result, section)
+	return result
+
+
+func threat_sections(enemy: Dictionary, engine: RefCounted) -> Array[Dictionary]:
+	if engine == null or enemy.is_empty() or bool(enemy.get("friendly", false)):
+		return []
+	# Sort a display copy; never reorder the party used by combat tie-breaking.
+	var ranked: Array[Dictionary] = []
+	var slot := 0
+	for hero in engine.state.heroes:
+		if int(hero.hp) > 0:
+			ranked.append({"name": text(hero.name_key), "threat": int(hero.threat), "slot": slot})
+		slot += 1
+	ranked.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (
+				left.slot < right.slot
+				if left.threat == right.threat
+				else left.threat > right.threat
+			)
+	)
+	var lines: Array[String] = [presentation_text("hover.threat.shared")]
+	for index in range(ranked.size()):
+		var entry: Dictionary = ranked[index]
+		lines.append(
+			presentation_text(
+				"hover.threat.row", {"rank": index + 1, "name": entry.name, "threat": entry.threat}
+			)
+		)
+	if ranked.is_empty():
+		lines.append(presentation_text("hover.threat.empty"))
+	return [
+		_help_section(
+			"threat.ranking", presentation_text("hover.threat.title"), "\n".join(lines), "main"
+		),
+		_help_section(
+			"threat.reason",
+			presentation_text("hover.threat.reason_title"),
+			_threat_reason(enemy, engine),
+			"main"
+		),
+	]
+
+
+func _threat_reason(enemy: Dictionary, engine: RefCounted) -> String:
+	if int(enemy.get("hp", 0)) <= 0 or enemy.get("intent", {}).is_empty():
+		return presentation_text("hover.threat.inactive")
+	if bool(enemy.get("interrupted", false)):
+		return presentation_text("hover.threat.interrupted")
+	var preview: Dictionary = engine.intent_preview(str(enemy.id))
+	var selected := false
+	var all_heroes := false
+	for effect in preview.get("effects", []):
+		selected = selected or str(effect.get("target", "selected")) == "selected"
+		all_heroes = all_heroes or str(effect.get("target", "")) == "all_enemies"
+	if not selected:
+		return presentation_text("hover.threat.all" if all_heroes else "hover.threat.support")
+	var target: Dictionary = engine.find_unit(str(enemy.get("target_id", "")))
+	var reason: String
+	if target.is_empty():
+		reason = presentation_text("hover.threat.missing_target")
+	elif enemy.intent.get("target_rule", "threat") == "lowest_hp_ratio":
+		reason = presentation_text(
+			"hover.threat.fixed_dead" if int(target.hp) <= 0 else "hover.threat.lowest_locked",
+			{"target": text(target.name_key)}
+		)
+	else:
+		reason = presentation_text("hover.threat.by_threat", {"target": text(target.name_key)})
+		reason += "\n" + presentation_text("hover.threat.taunt_rule")
+	if all_heroes:
+		reason += "\n" + presentation_text("hover.threat.additional_all")
+	return reason
+
+
+func _effect_sections(effects: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for effect in effects:
+		var keywords: Array = []
+		match str(effect.get("kind", "")):
+			"threat":
+				keywords = ["threat"]
+			"dispel", "interrupt", "revive":
+				keywords = [effect.kind]
+			"clear_status":
+				keywords = ["dispel"]
+			"taunt":
+				keywords = ["taunt", "threat"]
+			"apply_status":
+				keywords = [effect.get("status", "")]
+			"bomb":
+				keywords = ["bomb"]
+		for keyword in keywords:
+			_append_help(result, _keyword_section(str(keyword)))
+	return result
+
+
+func _keyword_section(keyword: String) -> Dictionary:
+	var status: Dictionary = definition("battle_rules", keyword, "statuses")
+	var title: String
+	var body: String
+	if not status.is_empty():
+		title = text(status.name_key)
+		body = status_details(keyword).trim_prefix(title + "：")
+		body += (
+			"\n"
+			+ presentation_text(
+				(
+					"hover.status.dispellable"
+					if bool(status.dispellable)
+					else "hover.status.not_dispellable"
+				)
+			)
+		)
+	else:
+		title = presentation_text("hover.keyword.title." + keyword)
+		if title == "hover.keyword.title." + keyword:
+			return {}
+		if keyword in ["retain", "exhaust", "interrupt", "revive"]:
+			body = text("keyword." + keyword, {"limit": rule("combat_revive_limit")}).trim_prefix(
+				title + "："
+			)
+		else:
+			var dispellable: Array[String] = []
+			for row in _source_rows("battle_rules", "statuses"):
+				if bool(row.dispellable):
+					dispellable.append(text(row.name_key))
+			body = presentation_text(
+				"hover.keyword." + keyword,
+				{
+					"heal_percent": rule("heal_threat") * 100.0,
+					"hand_limit": rule("hand_limit"),
+					"base_energy": rule("base_energy"),
+					"statuses": "、".join(dispellable)
+				}
+			)
+	return _help_section("keyword." + keyword, title, body, "keyword")
+
+
+func _help_section(id: String, title: String, body: String, kind: String) -> Dictionary:
+	return {"id": id, "title": title, "body": body, "kind": kind}
+
+
+func _append_help(sections: Array[Dictionary], section: Dictionary) -> void:
+	if section.is_empty():
+		return
+	for existing in sections:
+		if existing.id == section.id:
+			return
+	sections.append(section)
 
 
 func _check(ok: bool, row: Dictionary, field: String, reason: String) -> void:

@@ -22,7 +22,41 @@ REQUIRED_KEYS = frozenset('presentation.' + name for name in (
     'options', 'master_volume', 'music_volume', 'sfx_volume', 'audio_enabled',
     'fast', 'show_log', 'shake_enabled', 'flash_enabled', 'parallax_enabled',
     'restore', 'save_error', 'load_error', 'description',
+)) | frozenset('interaction.' + name for name in (
+    'choose_caster', 'caster', 'drag_hint', 'release_cast', 'cancel_drag',
+    'target_count', 'all_targets', 'preview', 'no_target',
+)) | frozenset('presentation.intent.' + name for name in (
+    'all_targets', 'interruptible', 'uninterruptible', 'immune', 'normal',
+    'incoming', 'incoming_entry', 'targets', 'no_action',
+)) | frozenset((
+    'presentation.target.legal', 'presentation.target.primary',
+    'hover.title.passive', 'hover.title.intent', 'hover.status.count',
+    'hover.status.dispellable', 'hover.status.not_dispellable',
+    'hover.passive.first_shield', 'hover.passive.first_damage', 'hover.passive.first_heal',
+)) | frozenset('hover.keyword.title.' + name for name in (
+    'shield', 'threat', 'dispel', 'healing', 'taunt', 'draw', 'energy',
+    'retain', 'exhaust', 'interrupt', 'revive',
+)) | frozenset('hover.keyword.' + name for name in (
+    'shield', 'threat', 'dispel', 'healing', 'taunt', 'draw', 'energy',
+)) | frozenset('hover.threat.' + name for name in (
+    'title', 'shared', 'row', 'empty', 'reason_title', 'by_threat',
+    'lowest_locked', 'fixed_dead', 'all', 'additional_all', 'support',
+    'interrupted', 'inactive', 'taunt_rule', 'missing_target',
 ))
+PLACEHOLDERS = {
+    'interaction.caster': {'name'}, 'interaction.target_count': {'count'},
+    'presentation.intent.incoming': {'count'},
+    'presentation.intent.incoming_entry': {'name', 'description'},
+    'presentation.intent.targets': {'targets'}, 'hover.status.count': {'name', 'count'},
+    'hover.passive.first_shield': {'amount'}, 'hover.passive.first_damage': {'amount'},
+    'hover.passive.first_heal': {'amount'}, 'hover.keyword.threat': {'heal_percent'},
+    'hover.keyword.dispel': {'statuses'}, 'hover.keyword.draw': {'hand_limit'},
+    'hover.keyword.energy': {'base_energy'},
+    'hover.threat.row': {'rank', 'name', 'threat'},
+    'hover.threat.by_threat': {'target'},
+    'hover.threat.lowest_locked': {'target'},
+    'hover.threat.fixed_dead': {'target'},
+}
 
 
 def validate_book(book: dict) -> tuple[dict[str, str], dict[str, str]]:
@@ -43,6 +77,9 @@ def validate_book(book: dict) -> tuple[dict[str, str], dict[str, str]]:
             raise ValueError(f'{source} [id]: duplicate {key}')
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f'{source} [text]: expected non-empty text')
+        fields = re.findall(r'\{([^{}]*)\}', value)
+        if set(fields) != PLACEHOLDERS.get(key, set()) or re.search(r'[{}]', re.sub(r'\{[^{}]*\}', '', value)):
+            raise ValueError(f'{source} [text]: unexpected or missing text placeholders')
         if not isinstance(source, str) or not source:
             raise ValueError(f'{key}: missing source location')
         texts[key], sources[key] = value, source

@@ -6,7 +6,7 @@ success still requires the user's visual, sound and interaction review.
 from accept_phase_one import main
 from accept_phase_two import SUITES as PHASE_TWO_SUITES
 
-SUITES = PHASE_TWO_SUITES + ('test_presentation',)
+SUITES = PHASE_TWO_SUITES + ('test_presentation', 'test_interaction')
 
 if __name__ == '__main__':
     raise SystemExit(main(phase=3, suites=SUITES))

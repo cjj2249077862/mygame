@@ -5,6 +5,8 @@ signal unit_hovered(unit_id: String)
 signal unit_unhovered(unit_id: String)
 
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
+const IntentSummary = preload("res://scripts/ui/battle/intent_summary.gd")
+const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
 @export var breath_amount: float
 @export var breath_speed: float
 @export var attack_distance: float
@@ -25,6 +27,13 @@ var _elapsed := 0.0
 var _motion_tween: Tween
 var _portrait_base := Vector2.ZERO
 var _boss := false
+var _data: RefCounted
+var _base_tooltip := ""
+var _incoming: Array = []
+var _related := false
+var _target_active := false
+var _target_primary := false
+var _unit_help: Array = []
 
 
 func _ready() -> void:
@@ -33,6 +42,18 @@ func _ready() -> void:
 	mouse_exited.connect(_on_unhovered)
 	$Content/Portrait.resized.connect(_on_portrait_resized)
 	resized.connect(_layout_stage)
+	for control in [
+		$IntentPlate,
+		$IntentBadge,
+		$Content/Intent,
+		$Content/IntentFlags,
+		$Content/IntentTargets,
+		$StatusBadge,
+		$Content/Statuses,
+		$Content/ThreatIcon,
+		$Incoming
+	]:
+		_connect_help_hover(control)
 	_layout_stage.call_deferred()
 
 
@@ -44,6 +65,35 @@ func configure_stage(boss: bool = false) -> void:
 	_layout_stage()
 
 
+func set_incoming_intents(entries: Array) -> void:
+	if entries == _incoming:
+		return
+	_incoming = entries.duplicate(true)
+	_refresh_incoming()
+	_layout_stage()
+
+
+func set_related_highlight(active: bool) -> void:
+	_related = active
+	$RelatedHighlight.visible = active
+
+
+func set_target_feedback(active: bool, primary: bool = false) -> void:
+	_target_active = active
+	_target_primary = primary and active
+	$TargetHighlight.visible = active
+	$TargetHint.visible = active
+	$TargetHighlight.self_modulate = Color(1, 0.81, 0.35) if primary else Color(0.59, 0.95, 0.83)
+	if _data != null:
+		$TargetHint.text = _data.presentation_text(
+			"presentation.target.primary" if _target_primary else "presentation.target.legal"
+		)
+
+
+func _get_tooltip(_at_position: Vector2) -> String:
+	return "" if has_meta("help_sections") else tooltip_text
+
+
 func _layout_stage() -> void:
 	if not is_node_ready():
 		return
@@ -51,8 +101,10 @@ func _layout_stage() -> void:
 	var plate_width: float = minf(size.x - 12.0, 300.0 if _boss else 236.0)
 	var plate_left: float = (size.x - plate_width) * 0.5
 	var plate_top: float = size.y - 84.0
-	var intent_height: float = 70.0 if $Content/IntentFlags.text.is_empty() else 88.0
-	var header_height: float = intent_height + 4.0 if not _friendly else 0.0
+	var intent_height: float = 78.0 if $Content/IntentExtras.get_child_count() > 0 else 58.0
+	var header_height: float = (
+		intent_height + 4.0 if not _friendly else (30.0 if $Incoming.visible else 0.0)
+	)
 	var available := Vector2(size.x, maxf(plate_top + 3.0 - header_height, 1.0))
 	var texture: Texture2D = $Content/Portrait.texture
 	var natural: Vector2 = texture.get_size() if texture != null else Vector2(2.0, 3.0)
@@ -75,7 +127,7 @@ func _layout_stage() -> void:
 		Vector2(plate_left + 7.0, plate_top + 27.0),
 		Vector2(plate_width - 14.0, 14)
 	)
-	var shield_left: float = plate_left + (8.0 if _friendly else plate_width * 0.35)
+	var shield_left: float = plate_left + plate_width * (0.35 if _friendly else 0.22)
 	var stat_width: float = maxf(12.0, plate_width * 0.5 - 30.0)
 	_place_content($Content/ShieldIcon, Vector2(shield_left, plate_top + 45.0), Vector2(18, 18))
 	_place_content(
@@ -83,13 +135,8 @@ func _layout_stage() -> void:
 	)
 	_place_content(
 		$Content/ThreatIcon,
-		Vector2(plate_left + plate_width * 0.5 + 3.0, plate_top + 45.0),
-		Vector2(18, 18)
-	)
-	_place_content(
-		$Content/ThreatValue,
-		Vector2(plate_left + plate_width * 0.5 + 24.0, plate_top + 44.0),
-		Vector2(stat_width, 20)
+		Vector2(plate_left + plate_width * 0.75, plate_top + 43.0),
+		Vector2(20, 20)
 	)
 	$StatusBadge.position = Vector2(plate_left + 4.0, plate_top + 69.0)
 	$StatusBadge.size = Vector2(16, 16)
@@ -101,14 +148,46 @@ func _layout_stage() -> void:
 	$IntentPlate.position = Vector2(plate_left, 0)
 	$IntentPlate.size = Vector2(plate_width, intent_height)
 	$IntentPlate.visible = not _friendly and not $Content/Intent.text.is_empty()
-	# Only the first line reserves a small icon; effect numbers use the full width.
 	$IntentBadge.position = Vector2(plate_left + 5.0, 6.0)
-	$IntentBadge.size = Vector2(14, 14)
-	_place_content($Content/Intent, Vector2(plate_left + 5.0, 3.0), Vector2(plate_width - 10.0, 64))
+	$IntentBadge.size = Vector2(20, 20)
+	var targets_width: float = 38.0 if $Content/IntentTargets.get_child_count() > 0 else 0.0
 	_place_content(
-		$Content/IntentFlags, Vector2(plate_left + 5.0, 67.0), Vector2(plate_width - 10.0, 18)
+		$Content/Intent,
+		Vector2(plate_left + 28.0, 3.0),
+		Vector2(plate_width - 33.0 - targets_width, 27)
 	)
+	_place_content(
+		$Content/IntentTargets, Vector2(plate_left + plate_width - 38.0, 3.0), Vector2(33, 27)
+	)
+	_place_content(
+		$Content/IntentFlags, Vector2(plate_left + 5.0, 31.0), Vector2(plate_width - 10.0, 22)
+	)
+	_place_content(
+		$Content/IntentExtras, Vector2(plate_left + 5.0, 55.0), Vector2(plate_width - 10.0, 20)
+	)
+	var intent_font: Font = $Content/Intent.get_theme_font("font")
+	var intent_size: int = 16 if plate_width < 180.0 else 19
+	while (
+		intent_size > 11
+		and (
+			(
+				intent_font
+				. get_string_size($Content/Intent.text, HORIZONTAL_ALIGNMENT_LEFT, -1, intent_size)
+				. x
+			)
+			> $Content/Intent.size.x
+		)
+	):
+		intent_size -= 1
+	$Content/Intent.add_theme_font_size_override("font_size", intent_size)
 	$Content/IntentFlags.visible = not $Content/IntentFlags.text.is_empty()
+	$Incoming.position = Vector2((size.x - 66.0) * 0.5, 0)
+	$Incoming.size = Vector2(66, 28)
+	for outline in [$RelatedHighlight, $TargetHighlight]:
+		outline.position = Vector2(plate_left - 2.0, plate_top - 2.0)
+		outline.size = Vector2(plate_width + 4.0, 70)
+	$TargetHint.position = Vector2(plate_left, plate_top - 23.0)
+	$TargetHint.size = Vector2(plate_width, 21)
 	_on_portrait_resized()
 
 
@@ -140,6 +219,9 @@ func render(
 	unit: Dictionary, data: RefCounted, engine: RefCounted, highlighted: bool, selected: bool
 ) -> void:
 	reset_presentation()
+	_data = data
+	if unit_id != str(unit.id):
+		_incoming.clear()
 	unit_id = unit.id
 	_friendly = bool(unit.friendly)
 	_alive = int(unit.hp) > 0
@@ -161,9 +243,12 @@ func render(
 	$Content/ShieldIcon.texture = Art.icon_texture("shield")
 	$Content/ShieldValue.text = str(unit.shield)
 	$Content/ThreatIcon.texture = Art.icon_texture("threat")
-	$Content/ThreatValue.text = str(unit.threat)
-	$Content/ThreatIcon.visible = _friendly
-	$Content/ThreatValue.visible = _friendly
+	$Content/ThreatValue.text = ""
+	$Content/ThreatIcon.visible = not _friendly and _alive
+	$Content/ThreatValue.hide()
+	var threat_help: Array = [] if _friendly else data.threat_sections(unit, engine)
+	$Content/ThreatIcon.tooltip_text = HoverHelp.plain_text(threat_help)
+	HoverHelp.attach($Content/ThreatIcon, threat_help, true)
 	var role: String = "boss" if _boss else "attack"
 	if _friendly:
 		role = str(data.definition("characters", str(unit.definition_id)).get("role", "tank"))
@@ -180,6 +265,7 @@ func render(
 	$IntentBadge.hide()
 	var status_text: Array[String] = []
 	var status_help: Array[String] = []
+	var status_sections: Array = []
 	if unit.friendly:
 		status_help.append(
 			data.text(
@@ -195,6 +281,7 @@ func render(
 			"%s %d" % [data.text("status." + status), engine.status_count(unit, status)]
 		)
 		status_help.append(data.status_details(status))
+		status_sections.append_array(data.status_sections(str(status)))
 	for mark in unit.get("marks", []):
 		if mark.kind == "bomb":
 			$StatusBadge.texture = Art.icon_texture("bomb")
@@ -204,9 +291,13 @@ func render(
 				data.text("ui.bomb_snapshot", {"remaining": mark.remaining, "amount": mark.amount})
 			)
 			status_help.append(data.status_details("bomb"))
+			if not unit.statuses.has("bomb"):
+				status_sections.append_array(data.status_sections("bomb"))
 	$Content/Statuses.text = "　".join(status_text)
 	$Content/Intent.text = ""
 	$Content/IntentFlags.text = ""
+	_clear_children($Content/IntentExtras)
+	_clear_children($Content/IntentTargets)
 	var intent_details := ""
 	if unit.hp <= 0:
 		$Content/Intent.text = data.text("ui.dead")
@@ -231,9 +322,10 @@ func render(
 			data.text("ui.interrupted") if unit.interrupted else str(preview.description),
 			data.text("ui.immune" if preview.immune else "ui.not_immune")
 		]
-		var flags: Array[String] = []
+		var state_key: String = str(preview.kind)
+		var flags: Array[String] = [data.presentation_text("presentation.intent." + state_key)]
 		if preview.immune:
-			flags.append(lines[3])
+			flags.append(data.presentation_text("presentation.intent.immune"))
 		if int(preview.boss_phase) > 0:
 			var phase_text: String = data.text("ui.boss_phase", {"phase": preview.boss_phase})
 			lines.append(phase_text)
@@ -244,18 +336,30 @@ func render(
 		elif int(preview.enrage_turn) > 0:
 			lines.append(data.text("ui.enrage_turn", {"turn": preview.enrage_turn}))
 		intent_details = "\n".join(lines)
-		var icon_space: String = "　 " if $IntentBadge.visible else ""
-		$Content/Intent.text = "%s%s\n%s" % [icon_space, lines[0], lines[2]]
+		var summary: Dictionary = IntentSummary.compact(preview, data)
+		$Content/Intent.text = (
+			data.text("ui.interrupted") if unit.interrupted else str(summary.value)
+		)
+		$IntentBadge.texture = Art.icon_texture(
+			"interrupt" if unit.interrupted else str(summary.icon)
+		)
+		$IntentBadge.visible = $IntentBadge.texture != null
+		if not unit.interrupted:
+			_render_intent_extras(summary.extras)
+			_render_intent_targets(summary, engine)
 		$Content/IntentFlags.text = " · ".join(flags)
+		set_meta("intent_preview", preview.duplicate(true))
 	$Content/Intent.tooltip_text = intent_details
 	$Content/IntentFlags.tooltip_text = intent_details
+	$IntentPlate.tooltip_text = intent_details
+	$IntentBadge.tooltip_text = intent_details
 	_selected = selected
 	set_pressed_no_signal(selected)
 	$Nameplate.self_modulate = (
 		get_theme_color("target_highlight", "UnitView") if selected else Color.WHITE
 	)
 	modulate = get_theme_color("target_highlight", "UnitView") if highlighted else Color.WHITE
-	tooltip_text = (
+	_base_tooltip = (
 		details
 		+ "\n"
 		+ $Content/Statuses.text
@@ -266,7 +370,160 @@ func render(
 	)
 	$StatusBadge.tooltip_text = $Content/Statuses.text
 	$Content/Statuses.tooltip_text = $Content/Statuses.text + "\n" + "\n".join(status_help)
+	_unit_help = data.unit_sections(unit, engine)
+	status_sections = _unique_sections(status_sections)
+	HoverHelp.attach($StatusBadge, status_sections, true)
+	HoverHelp.attach($Content/Statuses, status_sections, true)
+	var intent_sections: Array = []
+	if not intent_details.is_empty():
+		intent_sections.append(
+			{
+				"id": "intent",
+				"title": data.text(unit.name_key),
+				"body": intent_details,
+				"kind": "main"
+			}
+		)
+	for control in [$IntentPlate, $IntentBadge, $Content/Intent, $Content/IntentFlags]:
+		HoverHelp.attach(control, intent_sections, true)
+	_refresh_incoming()
+	set_target_feedback(_target_active, _target_primary)
 	_layout_stage()
+
+
+func _render_intent_extras(extras: Array) -> void:
+	var limit: int = 2 if size.x < 150.0 else 3
+	for index in range(mini(extras.size(), limit)):
+		var extra: Dictionary = extras[index]
+		var chip := HBoxContainer.new()
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_theme_constant_override("separation", 2)
+		var icon := TextureRect.new()
+		icon.texture = Art.icon_texture(str(extra.icon))
+		icon.custom_minimum_size = Vector2(16, 18)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_child(icon)
+		var value := Label.new()
+		value.text = str(extra.value)
+		value.add_theme_font_size_override("font_size", 12)
+		value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_child(value)
+		$Content/IntentExtras.add_child(chip)
+		_connect_help_hover(chip)
+		HoverHelp.attach(
+			chip,
+			[{"id": "intent_effect", "title": "", "body": str(extra.details), "kind": "keyword"}],
+			true
+		)
+	if extras.size() > limit:
+		var more := Label.new()
+		more.text = "+%d" % (extras.size() - limit)
+		more.add_theme_font_size_override("font_size", 12)
+		more.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		$Content/IntentExtras.add_child(more)
+
+
+func _render_intent_targets(preview: Dictionary, engine: RefCounted) -> void:
+	var targets: Array = preview.get("target_ids", [])
+	var names: Array[String] = []
+	for id in targets:
+		var target: Dictionary = engine.find_unit(str(id))
+		if not target.is_empty():
+			names.append(_data.text(target.name_key))
+	if bool(preview.get("all_targets", false)):
+		var all := Label.new()
+		all.text = _data.presentation_text("presentation.intent.all_targets")
+		all.add_theme_font_size_override("font_size", 12)
+		all.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		$Content/IntentTargets.add_child(all)
+	else:
+		for id in targets.slice(0, 2):
+			var target: Dictionary = engine.find_unit(str(id))
+			if target.is_empty():
+				continue
+			var texture: Texture2D = Art.actor_texture(str(target.definition_id))
+			if texture == null:
+				continue
+			var face := AtlasTexture.new()
+			face.atlas = texture
+			face.region = Rect2(
+				texture.get_size() * Vector2(0.2, 0.0), texture.get_size() * Vector2(0.6, 0.34)
+			)
+			face.filter_clip = true
+			var avatar := TextureRect.new()
+			avatar.texture = face
+			avatar.custom_minimum_size = Vector2(26 if targets.size() == 1 else 15, 26)
+			avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			$Content/IntentTargets.add_child(avatar)
+	var detail: String = _data.presentation_text(
+		"presentation.intent.targets", {"targets": " / ".join(names)}
+	)
+	HoverHelp.attach(
+		$Content/IntentTargets,
+		[{"id": "intent_targets", "title": "", "body": detail, "kind": "main"}],
+		true
+	)
+
+
+func _refresh_incoming() -> void:
+	if not is_node_ready() or _data == null:
+		return
+	$Incoming.visible = _friendly and _alive and not _incoming.is_empty()
+	$Incoming/Icon.texture = Art.icon_texture("attack")
+	$Incoming/Count.text = str(_incoming.size())
+	$Incoming.set_meta("incoming_entries", _incoming.duplicate(true))
+	var help: Array = _unit_help.duplicate(true)
+	tooltip_text = _base_tooltip
+	var incoming_sections: Array = []
+	if $Incoming.visible:
+		var descriptions: Array[String] = []
+		for entry in _incoming:
+			descriptions.append(
+				_data.presentation_text(
+					"presentation.intent.incoming_entry",
+					{
+						"name": str(entry.get("name", "")),
+						"description": str(entry.get("description", ""))
+					}
+				)
+			)
+		var title: String = _data.presentation_text(
+			"presentation.intent.incoming", {"count": _incoming.size()}
+		)
+		var body: String = "\n".join(descriptions)
+		incoming_sections.append({"id": "incoming", "title": title, "body": body, "kind": "main"})
+		tooltip_text += "\n\n" + title + "\n" + body
+	HoverHelp.attach($Incoming, incoming_sections, true)
+	HoverHelp.attach(self, help)
+
+
+func _clear_children(control: Node) -> void:
+	for child in control.get_children():
+		control.remove_child(child)
+		child.queue_free()
+
+
+func _unique_sections(sections: Array) -> Array:
+	var unique: Array = []
+	var seen: Dictionary = {}
+	for section in sections:
+		var key: String = str(section.get("id", ""))
+		if key.is_empty():
+			key = str(section.get("title", "")) + str(section.get("body", ""))
+		if not seen.has(key):
+			seen[key] = true
+			unique.append(section)
+	return unique
+
+
+func _connect_help_hover(control: Control) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_PASS
+	control.mouse_entered.connect(_on_hovered)
+	control.mouse_exited.connect(_on_unhovered)
 
 
 func play_cue(kind: String, fast: bool = false) -> void:
@@ -320,4 +577,6 @@ func _on_hovered() -> void:
 
 
 func _on_unhovered() -> void:
+	if get_global_rect().has_point(get_global_mouse_position()):
+		return
 	unit_unhovered.emit(unit_id)

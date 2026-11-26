@@ -32,8 +32,12 @@ var _options: Dictionary = {
 }
 var _shake_tween: Tween
 var _intent_cues: Dictionary = {}
-var _intent_lines: Dictionary = {}
+var _intent_targets: Dictionary = {}
 var _pending_card: Dictionary = {}
+var _drag_active := false
+var _preparing_drag := false
+var _related_unit := ""
+const PILE_KEYS := ["deck", "draw", "hand", "discard", "exhaust", "removed"]
 
 @onready var hand = $Margin/Content/HandScroll/Hand
 @onready var log_view = $Margin/Content/Middle/Log
@@ -50,8 +54,9 @@ func _ready() -> void:
 	cast_button.pressed.connect(_on_cast_pressed)
 	cast_button.mouse_entered.connect(_on_cast_hovered)
 	$Margin/Content/Actions/Cancel.pressed.connect(clear_selection)
-	$Margin/Content/Actions/Piles.pressed.connect(_on_piles_pressed)
-	$Margin/Content/Actions/Discard.pressed.connect(_on_piles_pressed)
+	$Margin/Content/Actions/Piles.pressed.connect(_on_piles_pressed.bind("draw"))
+	$Margin/Content/Actions/Discard.pressed.connect(_on_piles_pressed.bind("discard"))
+	$Piles/Tabs.tab_changed.connect(_on_pile_tab_changed)
 	$Margin/Content/Actions/Piles.icon = Art.icon_texture("draw")
 	$Margin/Content/Actions/Discard.icon = Art.icon_texture("discard")
 	$Margin/Content/Energy.texture = Art.icon_texture("energy")
@@ -79,13 +84,14 @@ func configure_presentation(options: Dictionary) -> void:
 
 
 func bind_battle(new_engine: RefCounted, game_data: RefCounted, run_deck: Array) -> void:
+	$Drag.cancel()
 	if engine != null and engine.settled.is_connected(_on_settled):
 		engine.settled.disconnect(_on_settled)
 	_generation += 1
 	_reset_feedback()
 	_has_presented_state = false
 	_intent_cues.clear()
-	_intent_lines.clear()
+	_intent_targets.clear()
 	_pending_card.clear()
 	_close_dialogs()
 	engine = new_engine
@@ -129,7 +135,7 @@ func leave_battle() -> void:
 	_generation += 1
 	_reset_feedback()
 	_pending_card.clear()
-	_intent_lines.clear()
+	_intent_targets.clear()
 	locked = false
 	if engine != null and engine.settled.is_connected(_on_settled):
 		engine.settled.disconnect(_on_settled)
@@ -159,10 +165,10 @@ func refresh() -> void:
 		chosen_status = ""
 		$DispelConfirm.hide()
 	var state: Dictionary = engine.snapshot()
-	_intent_lines.clear()
+	_intent_targets.clear()
 	for enemy in state.enemies:
 		if enemy.hp > 0 and not enemy.interrupted:
-			_intent_lines[enemy.id] = engine.intent_preview(enemy.id).target_ids.duplicate()
+			_intent_targets[enemy.id] = engine.intent_preview(enemy.id).target_ids.duplicate()
 	$Margin/Content/Header.text = data.text(
 		"ui.stats", {"turn": state.turn, "energy": state.energy, "gold": gold}
 	)
@@ -228,10 +234,17 @@ func refresh() -> void:
 	)
 	cast_button.disabled = locked or externally_blocked
 	$Margin/Content.layout_stage()
+	_refresh_incoming_intents()
+	_refresh_caster_picker()
+	_update_unit_feedback()
 	queue_redraw()
 
 
 func clear_selection() -> void:
+	if not _preparing_drag:
+		$Drag.cancel()
+	_drag_active = false
+	$Interaction/Preview.hide()
 	selected_copy = -1
 	selected_caster = ""
 	pending_target = ""
@@ -239,7 +252,7 @@ func clear_selection() -> void:
 	chosen_status = ""
 	_close_dialogs()
 	if data != null:
-		hint.text = data.text("ui.select_card")
+		hint.text = data.presentation_text("interaction.drag_hint")
 	if _active:
 		refresh()
 	else:
@@ -250,13 +263,17 @@ func _on_settled(records: Array, _snapshot: Dictionary) -> void:
 	if not _active:
 		return
 	locked = true
+	$Drag.cancel()
+	_drag_active = false
+	$Interaction/CasterPicker.hide()
+	$Interaction/Preview.hide()
 	selected_copy = -1
 	selected_caster = ""
 	pending_target = ""
 	hovered_target = ""
 	chosen_status = ""
 	_close_dialogs()
-	hint.text = data.text("ui.select_card")
+	hint.text = data.presentation_text("interaction.drag_hint")
 	# The core has finished this action. Retain the previous portraits while its
 	# records play, then render the final snapshot; never simulate rules in the UI.
 	if not _has_presented_state:
@@ -339,6 +356,10 @@ func _confirm_target(id: String) -> void:
 
 
 func _on_unit_hovered(id: String) -> void:
+	_related_unit = id
+	_update_unit_feedback()
+	if _drag_active:
+		return
 	if locked or externally_blocked or not _active or selected_copy < 0 or selected_caster == "":
 		return
 	hovered_target = id if _target_is_legal(id) else ""
@@ -347,6 +368,9 @@ func _on_unit_hovered(id: String) -> void:
 
 
 func _on_unit_unhovered(id: String) -> void:
+	if _related_unit == id:
+		_related_unit = ""
+		_update_unit_feedback()
 	if hovered_target == id:
 		hovered_target = ""
 		queue_redraw()
@@ -371,6 +395,9 @@ func _show_preview(id: String, status: String = "") -> void:
 			var target: Dictionary = engine.find_unit(record.target)
 			lines.append(data.text("log." + record.kind, {"target": data.text(target.name_key)}))
 	hint.text = "　".join(lines)
+	if _drag_active:
+		$Interaction/Preview/Text.text = "\n".join(lines)
+		$Interaction/Preview.show()
 	if pending_target == id:
 		dispel_preview.text = "\n".join(lines)
 
@@ -447,11 +474,23 @@ func _end_turn() -> void:
 			hint.text = data.text(error)
 
 
-func _on_piles_pressed() -> void:
+func _on_piles_pressed(pile: String = "draw") -> void:
 	if not _active or engine == null:
 		return
+	$Drag.cancel()
+	$Piles/Tabs.clear_tabs()
+	for key in PILE_KEYS:
+		$Piles/Tabs.add_tab(data.text("ui.pile." + key).get_slice("（", 0))
+	$Piles/Tabs.current_tab = maxi(0, PILE_KEYS.find(pile))
+	_on_pile_tab_changed($Piles/Tabs.current_tab)
+	_popup_sized($Piles, piles_preferred_size)
+
+
+func _on_pile_tab_changed(index: int) -> void:
+	if engine == null or index < 0 or index >= PILE_KEYS.size():
+		return
 	var lines: Array[String] = []
-	for pile in ["deck", "draw", "hand", "discard", "exhaust", "removed"]:
+	for pile in [PILE_KEYS[index]]:
 		lines.append(data.text("ui.pile." + pile))
 		var cards: Array = deck if pile == "deck" else engine.state[pile].duplicate(true)
 		# Never expose the live draw order, even in a text-only pile viewer.
@@ -464,7 +503,7 @@ func _on_piles_pressed() -> void:
 			lines.append(data.card_details(copy).replace("\n", "　"))
 		lines.append("")
 	$Piles/Text.text = "\n".join(lines)
-	_popup_sized($Piles, piles_preferred_size)
+	$Piles/Text.scroll_to_line(0)
 
 
 func _input(event: InputEvent) -> void:
@@ -529,6 +568,7 @@ func _caster_is_legal(caster_id: String) -> bool:
 func _on_layout_changed() -> void:
 	# Containers finish child placement after their current resize notification.
 	$Margin/Content.layout_stage.call_deferred()
+	_position_interaction.call_deferred()
 	queue_redraw.call_deferred()
 	if $Piles.visible:
 		_popup_sized($Piles, piles_preferred_size)
@@ -674,69 +714,215 @@ func _center_popup(dialog: Window) -> void:
 		dialog.move_to_center()
 
 
-func _draw() -> void:
-	$TargetLines.queue_redraw()
+func prepare_card_drag(copy_id: int) -> bool:
+	if locked or externally_blocked or not _active or _modal_open():
+		return false
+	if engine.find_card(copy_id).is_empty():
+		return false
+	_preparing_drag = true
+	if selected_copy != copy_id or selected_caster not in engine.legal_casters(copy_id):
+		_on_card_selected(copy_id)
+	_preparing_drag = false
+	if selected_caster == "":
+		hint.text = data.presentation_text("interaction.choose_caster")
+		return false
+	_drag_active = true
+	$Interaction/CasterPicker.hide()
+	_related_unit = ""
+	return true
 
 
-func draw_target_lines(canvas: Control) -> void:
-	if not _active or engine == null or not engine.state.has("enemies"):
+func update_card_drag(pointer: Vector2) -> void:
+	if not _drag_active:
 		return
-	var views: Dictionary = _unit_views()
-	for enemy_id in _intent_lines:
-		for destination in _intent_lines[enemy_id]:
-			_draw_target_line(views, str(enemy_id), str(destination), "intent_line", 2, canvas)
-	if not locked and not externally_blocked and selected_copy >= 0 and selected_caster != "":
-		var copy: Dictionary = engine.find_card(selected_copy)
-		if not copy.is_empty() and data.definition("cards", copy.card_id).target == "none":
-			for destination in engine.action_targets(
-				selected_copy, selected_caster, selected_caster
-			):
-				_draw_target_line(
-					views, selected_caster, str(destination), "target_line", 3, canvas
+	if locked or externally_blocked or not _active or _modal_open():
+		$Drag.cancel()
+		return
+	hovered_target = _drop_target(pointer)
+	$Interaction/Preview.hide()
+	if hovered_target != "" and _target_is_legal(hovered_target):
+		_show_preview(hovered_target, _preview_status(hovered_target))
+		hint.text = (
+			data.presentation_text("interaction.release_cast")
+			+ " · "
+			+ data.presentation_text(
+				"interaction.caster",
+				{"name": data.text(engine.find_unit(selected_caster).name_key)}
+			)
+		)
+	else:
+		hint.text = data.presentation_text("interaction.cancel_drag")
+		if hovered_target != "":
+			var error: String = engine.validate_play(selected_copy, selected_caster, hovered_target)
+			hint.text = data.text(error) if error != "" else hint.text
+	_update_unit_feedback()
+	_position_interaction()
+	queue_redraw()
+
+
+func finish_card_drag(pointer: Vector2) -> void:
+	var target_id: String = _drop_target(pointer) if _drag_active else ""
+	_drag_active = false
+	$Interaction/Preview.hide()
+	if target_id != "" and not locked and not externally_blocked and not _modal_open():
+		if _target_is_legal(target_id):
+			_confirm_target(target_id)
+			return
+		var error: String = engine.validate_play(selected_copy, selected_caster, target_id)
+		clear_selection()
+		hint.text = (
+			data.text(error) if error != "" else data.presentation_text("interaction.no_target")
+		)
+		return
+	clear_selection()
+
+
+func cancel_card_drag() -> void:
+	_drag_active = false
+	clear_selection()
+
+
+func _modal_open() -> bool:
+	# Embedded dialogs route mouse input to another viewport. Never treat the
+	# stage underneath them as a drop target or a second click destination.
+	for window in get_tree().root.get_embedded_subwindows():
+		if window.visible:
+			return true
+	return false
+
+
+func _drop_target(pointer: Vector2) -> String:
+	if not _active or selected_copy < 0 or selected_caster == "" or _modal_open():
+		return ""
+	var hand_top: float = hand.get_global_rect().position.y
+	var area := Rect2(
+		global_position + Vector2(16, 38), Vector2(size.x - 32, hand_top - global_position.y - 38)
+	)
+	if not area.has_point(pointer):
+		return ""
+	for control in [log_view, $Interaction/CasterPicker]:
+		if control.is_visible_in_tree() and control.get_global_rect().has_point(pointer):
+			return ""
+	for control in $Margin/Content/Actions.get_children():
+		if control.is_visible_in_tree() and control.get_global_rect().has_point(pointer):
+			return ""
+	var copy: Dictionary = engine.find_card(selected_copy)
+	if copy.is_empty():
+		return ""
+	var scope: String = str(data.definition("cards", copy.card_id).target)
+	if scope in ["self", "none"]:
+		return selected_caster
+	var nearest := ""
+	var distance := INF
+	for id in _unit_views():
+		var unit_view: Control = _unit_views()[id]
+		var bounds: Rect2 = unit_view.get_global_rect()
+		if bounds.has_point(pointer):
+			var candidate_distance: float = pointer.distance_squared_to(bounds.get_center())
+			if candidate_distance < distance:
+				nearest = id
+				distance = candidate_distance
+	return nearest
+
+
+func _refresh_caster_picker() -> void:
+	var picker: Control = $Interaction/CasterPicker
+	for child in $Interaction/CasterPicker/Content/Choices.get_children():
+		child.get_parent().remove_child(child)
+		child.queue_free()
+	picker.hide()
+	if selected_copy < 0 or locked or externally_blocked or _drag_active:
+		return
+	var casters: Array = engine.legal_casters(selected_copy)
+	if casters.size() <= 1:
+		return
+	$Interaction/CasterPicker/Content/Title.text = data.presentation_text(
+		"interaction.choose_caster"
+	)
+	for caster_id in casters:
+		var unit: Dictionary = engine.find_unit(caster_id)
+		var button := Button.new()
+		button.text = data.text(unit.name_key)
+		button.icon = Art.actor_texture(unit.definition_id)
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", 24)
+		button.custom_minimum_size = Vector2(96, 38)
+		button.toggle_mode = true
+		button.button_pressed = caster_id == selected_caster
+		button.disabled = not _caster_is_legal(caster_id)
+		button.set_meta("caster_id", caster_id)
+		button.pressed.connect(_choose_caster.bind(caster_id))
+		$Interaction/CasterPicker/Content/Choices.add_child(button)
+	picker.show()
+	_position_interaction.call_deferred()
+
+
+func _choose_caster(id: String) -> void:
+	if locked or externally_blocked or selected_copy < 0 or not _caster_is_legal(id):
+		return
+	selected_caster = id
+	hovered_target = ""
+	refresh()
+	hint.text = (
+		data.presentation_text(
+			"interaction.caster", {"name": data.text(engine.find_unit(id).name_key)}
+		)
+		+ " · "
+		+ data.presentation_text("interaction.drag_hint")
+	)
+
+
+func _position_interaction() -> void:
+	var top: Vector2 = hand.get_global_rect().position - global_position
+	for panel in [$Interaction/CasterPicker, $Interaction/Preview]:
+		panel.reset_size()
+		panel.position = Vector2((size.x - panel.size.x) * 0.5, top.y + 4)
+
+
+func _refresh_incoming_intents() -> void:
+	for unit_view in _unit_views().values():
+		var entries: Array = []
+		var unit: Dictionary = engine.find_unit(unit_view.unit_id)
+		if unit.friendly:
+			for enemy_id in _intent_targets:
+				if unit.id in _intent_targets[enemy_id]:
+					var enemy: Dictionary = engine.find_unit(enemy_id)
+					var preview: Dictionary = engine.intent_preview(enemy_id)
+					entries.append(
+						{
+							"enemy_id": enemy_id,
+							"name": data.text(enemy.name_key),
+							"description": preview.description,
+							"kind": preview.kind
+						}
+					)
+		unit_view.set_incoming_intents(entries)
+
+
+func _update_unit_feedback() -> void:
+	if engine == null or not engine.state.has("heroes"):
+		return
+	var related: Array = []
+	if _related_unit != "" and selected_copy < 0:
+		related.append(_related_unit)
+		if _intent_targets.has(_related_unit):
+			related.append_array(_intent_targets[_related_unit])
+		else:
+			for enemy_id in _intent_targets:
+				if _related_unit in _intent_targets[enemy_id]:
+					related.append(enemy_id)
+	for id in _unit_views():
+		var unit_view: Control = _unit_views()[id]
+		unit_view.set_related_highlight(id in related)
+		var legal: bool = selected_copy >= 0 and not locked and not externally_blocked
+		if legal:
+			legal = _caster_is_legal(id) if selected_caster == "" else _target_is_legal(id)
+			if selected_caster != "" and not engine.find_card(selected_copy).is_empty():
+				var scope: String = (
+					data.definition("cards", engine.find_card(selected_copy).card_id).target
 				)
-	var target_id: String = pending_target if pending_target != "" else hovered_target
-	if (
-		not locked
-		and not externally_blocked
-		and _target_is_legal(target_id)
-		and views.has(selected_caster)
-		and views.has(target_id)
-	):
-		_draw_target_line(views, selected_caster, target_id, "target_line", 3, canvas)
-
-
-func _draw_target_line(
-	views: Dictionary,
-	source_id: String,
-	target_id: String,
-	color_key: String,
-	width: float,
-	canvas: Control
-) -> void:
-	if source_id == target_id or not views.has(source_id) or not views.has(target_id):
-		return
-	var source: Rect2 = views[source_id].get_global_rect()
-	var target: Rect2 = views[target_id].get_global_rect()
-	var start: Vector2 = source.position + source.size * Vector2(0.5, 0.22) - global_position
-	var finish: Vector2 = target.position + target.size * Vector2(0.5, 0.28) - global_position
-	var bend: Vector2 = (
-		(start + finish) * 0.5 - Vector2(0, minf(100, absf(finish.x - start.x) * 0.16))
-	)
-	var points: PackedVector2Array = PackedVector2Array()
-	for index in range(33):
-		var t: float = float(index) / 32.0
-		points.append(start.lerp(bend, t).lerp(bend.lerp(finish, t), t))
-	var color: Color = get_theme_color(color_key, "BattleView")
-	canvas.draw_polyline(points, color, width, true)
-	var direction: Vector2 = (finish - points[31]).normalized()
-	var perpendicular: Vector2 = direction.orthogonal()
-	canvas.draw_colored_polygon(
-		PackedVector2Array(
-			[
-				finish,
-				finish - direction * 13 + perpendicular * 5,
-				finish - direction * 13 - perpendicular * 5
-			]
-		),
-		color
-	)
+				if scope == "none":
+					legal = (
+						id in engine.action_targets(selected_copy, selected_caster, selected_caster)
+					)
+		unit_view.set_target_feedback(legal, legal and id == hovered_target)

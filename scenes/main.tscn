@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main.gd" id="1"]
 [ext_resource type="Theme" path="res://themes/game_theme.tres" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/presentation/presentation_options.tscn" id="8"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/audio_director.gd" id="9"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/ambient_backdrop.gd" id="10"]
+[ext_resource type="PackedScene" path="res://scenes/presentation/hover_help.tscn" id="11"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -44,6 +45,8 @@ follow_speed = 2.0
 
 [node name="AudioDirector" type="Node" parent="."]
 script = ExtResource("9")
+
+[node name="HoverHelp" parent="." instance=ExtResource("11")]
 
 [node name="Menu" type="CenterContainer" parent="."]
 layout_mode = 1

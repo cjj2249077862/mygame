@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/battle/battle_log.tscn" id="3"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/battle_feedback.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/battle_stage.gd" id="5"]
-[ext_resource type="Script" path="res://scripts/ui/presentation/target_lines.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/ui/battle/battle_drag.gd" id="6"]
 
 [sub_resource type="StyleBoxFlat" id="EndButton"]
 bg_color = Color(0.24, 0.095, 0.055, 0.98)
@@ -189,12 +189,20 @@ autowrap_mode = 3
 
 [node name="Piles" type="AcceptDialog" parent="."]
 
+[node name="Tabs" type="TabBar" parent="Piles"]
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 44.0
+clip_tabs = true
+
 [node name="Text" type="RichTextLabel" parent="Piles"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = 12.0
+offset_top = 54.0
 offset_right = -12.0
 offset_bottom = -60.0
 
@@ -246,11 +254,48 @@ horizontal_alignment = 1
 vertical_alignment = 1
 mouse_filter = 2
 
-[node name="TargetLines" type="Control" parent="."]
+[node name="Interaction" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-z_index = 2
+z_index = 150
+
+[node name="CasterPicker" type="PanelContainer" parent="Interaction"]
+visible = false
+mouse_filter = 0
+theme_override_styles/panel = SubResource("FeedbackPanel")
+
+[node name="Content" type="VBoxContainer" parent="Interaction/CasterPicker"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Interaction/CasterPicker/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+
+[node name="Choices" type="HBoxContainer" parent="Interaction/CasterPicker/Content"]
+layout_mode = 2
+alignment = 1
+
+[node name="Preview" type="PanelContainer" parent="Interaction"]
+visible = false
+mouse_filter = 2
+theme_override_styles/panel = SubResource("FeedbackPanel")
+
+[node name="Text" type="Label" parent="Interaction/Preview"]
+layout_mode = 2
+custom_minimum_size = Vector2(330, 0)
+autowrap_mode = 3
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+
+[node name="Drag" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+z_index = 200
 script = ExtResource("6")

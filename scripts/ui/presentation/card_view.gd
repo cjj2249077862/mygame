@@ -3,6 +3,7 @@ extends Button
 signal preview_requested(card: Control, active: bool)
 
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
+const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
 @export var hover_scale: float = 1.1
 @export var hover_duration: float = 0.12
 @export var tank_title_color: Color
@@ -11,10 +12,11 @@ const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 @export var neutral_title_color: Color
 var layout_owner: Control
 var _hover: Tween
-var _pointer_inside := false
-var _previewing := false
-var _last_disabled := false
-var _last_selected := false
+var _pointer_inside: bool = false
+var _previewing: bool = false
+var _last_disabled: bool = false
+var _last_selected: bool = false
+var _drag_suppressed: bool = false
 
 
 func _ready() -> void:
@@ -56,6 +58,23 @@ func render(copy: Dictionary, data: RefCounted) -> void:
 	)
 	_fit_content.call_deferred()
 	_sync_state()
+	HoverHelp.attach(self, data.card_sections(copy))
+
+
+func set_drag_suppressed(suppressed: bool) -> void:
+	_drag_suppressed = suppressed
+	if suppressed:
+		_pointer_inside = false
+	_update_preview()
+
+
+func set_layout_hover(inside: bool) -> void:
+	_pointer_inside = inside
+	_update_preview()
+
+
+func _get_tooltip(_at_position: Vector2) -> String:
+	return "" if has_meta("help_sections") else tooltip_text
 
 
 func _process(_delta: float) -> void:
@@ -97,12 +116,15 @@ func _fit_content() -> void:
 
 
 func _on_pointer(inside: bool) -> void:
+	# The hand owns hit testing against fixed slots, independent of the animated face.
+	if layout_owner != null:
+		return
 	_pointer_inside = inside
 	_update_preview()
 
 
 func _update_preview() -> void:
-	var active: bool = _pointer_inside or has_focus()
+	var active: bool = not _drag_suppressed and (_pointer_inside or has_focus())
 	if _previewing == active:
 		return
 	_previewing = active
@@ -119,6 +141,8 @@ func _update_preview() -> void:
 
 
 func _has_point(point: Vector2) -> bool:
+	if layout_owner != null:
+		return layout_owner.accepts_card_point(self, point)
 	if not Rect2(Vector2.ZERO, size).has_point(point):
 		return false
-	return layout_owner == null or layout_owner.accepts_card_point(self, point)
+	return true

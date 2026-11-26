@@ -7,6 +7,7 @@ signal relic_skipped(token: int)
 
 const CardView = preload("res://scenes/presentation/card_view.tscn")
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
+const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
 var _token := -1
 var _submitted := false
 var _relic_submitted := false
@@ -73,10 +74,18 @@ func render_rewards(
 		$Margin/Content/Cards.add_child(button)
 		button.render({"card_id": id, "upgraded": false}, data)
 	for id in _relics:
-		var button := _button(data.relic_text(id), data.relic_text(id))
+		var all_sections: Array = data.relic_sections(id)
+		var summary: Array = all_sections.filter(
+			func(section: Dictionary) -> bool: return section.get("kind", "") == "main"
+		)
+		var button := _button(HoverHelp.plain_text(summary), data.relic_text(id))
 		button.icon = Art.icon_texture(id)
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width", 42)
+		var sections: Array = all_sections.filter(
+			func(section: Dictionary) -> bool: return section.get("kind", "") != "main"
+		)
+		HoverHelp.attach(button, sections, true)
 		button.disabled = blocked or _relics_done
 		button.pressed.connect(_on_claim_relic.bind(id, token))
 		$Margin/Content/Relics.add_child(button)

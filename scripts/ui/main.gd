@@ -28,6 +28,7 @@ func _ready() -> void:
 	$PresentationOptions.bind_preferences(preferences, data)
 	preferences.changed.connect(_apply_presentation)
 	$Battle.presentation_event.connect($AudioDirector.play_event)
+	$Battle/Drag.drag_state_changed.connect($HoverHelp.set_dragging)
 	$Battle/Margin/Content/Actions/Fast.toggled.connect(_on_fast_changed)
 	for button in [$Menu/Content/Presentation, $Navigation/Actions/Presentation]:
 		button.text = preferences.text("presentation.options")

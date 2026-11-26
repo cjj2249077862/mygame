@@ -99,6 +99,7 @@ func show_card(
 	card.focus_mode = Control.FOCUS_NONE
 	flight.add_child(card)
 	card.render(copy, data)
+	card.set_meta("help_disabled", true)
 	card.tooltip_text = ""
 	var duration: float = 0.1 if fast else 0.22
 	var tween: Tween = flight.create_tween().set_parallel(true)

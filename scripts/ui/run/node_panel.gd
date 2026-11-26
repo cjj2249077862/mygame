@@ -6,6 +6,7 @@ signal action_requested(
 
 const Types = preload("res://scripts/core/enums.gd")
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
+const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
 @export var choice_minimum_size: Vector2
 @export var picker_preferred_size: Vector2i
 @export var picker_viewport_margin: Vector2i
@@ -82,6 +83,30 @@ func render(state: Dictionary, data: RefCounted) -> void:
 				button.text = data.text("ui.out_of_stock")
 			elif not offer.sold_out and state.gold < offer.price:
 				button.tooltip_text += "\n" + data.text("ui.not_enough_gold")
+			if offer.item_id != "":
+				var sections: Array = (
+					data.card_sections({"card_id": offer.item_id, "upgraded": false})
+					if offer.kind == "card"
+					else data.relic_sections(offer.item_id)
+				)
+				# Offers show only the name and price; keep the missing description once.
+				var description: String = (
+					data.card_text({"card_id": offer.item_id, "upgraded": false})
+					if offer.kind == "card"
+					else ""
+				)
+				for section in sections:
+					if section.get("kind", "") == "main" and description.is_empty():
+						description = str(section.get("body", ""))
+				sections = sections.filter(
+					func(section: Dictionary) -> bool: return section.get("kind", "") != "main"
+				)
+				if not offer.sold_out and state.gold < offer.price:
+					description += "\n" + data.text("ui.not_enough_gold")
+				sections.push_front(
+					{"id": "offer", "title": "", "body": description, "kind": "main"}
+				)
+				HoverHelp.attach(button, sections, true)
 			options.add_child(button)
 		$Margin/Content/ShopActions/Refresh.text = data.text(
 			"ui.shop_refresh", {"cost": state.shop.refresh_cost}
