@@ -6,6 +6,7 @@ const Types = preload("res://scripts/core/enums.gd")
 @export var save_directory := "user://raiddeck"
 @export var chapter_map_preferred_size: Vector2i
 @export var chapter_map_viewport_margin: Vector2i
+@export var inspect_preferred_size: Vector2i
 var data := Data.new()
 var run: RefCounted
 var _showing_menu := true
@@ -38,6 +39,7 @@ func _ready() -> void:
 	$Navigation/Actions/Abandon.pressed.connect(_on_abandon)
 	$Navigation/Actions/Inspect.pressed.connect(_on_inspect)
 	$Navigation/Actions/Map.pressed.connect(_on_chapter_map_pressed)
+	$Navigation/Actions/EventResult.pressed.connect(_on_event_result_pressed)
 	$Confirm.confirmed.connect(_on_menu_confirmed)
 	$Confirm.canceled.connect(_clear_menu_confirmation)
 	$SaveProblem/Content/Retry.pressed.connect(_on_retry_save)
@@ -136,7 +138,7 @@ func _clear_menu_confirmation() -> void:
 
 
 func _on_quit() -> void:
-	if run != null and not _showing_menu and not run.return_to_menu():
+	if run != null and not run.return_to_menu():
 		_on_run_changed()
 		return
 	get_tree().quit()
@@ -172,7 +174,15 @@ func _on_run_changed() -> void:
 	)
 	$Menu/Content/Continue.disabled = not run.has_saved_run() or blocked
 	$Menu/Content/Start.disabled = blocked
+	$Result/Content/Restart.disabled = blocked
+	$Result/Content/Menu.disabled = blocked
 	$Navigation/Actions/Abandon.disabled = blocked
+	var receipt: Dictionary = state.get("event_result", {})
+	$Navigation/Actions/EventResult.visible = (
+		state.phase == Types.RunPhase.MAP and not receipt.is_empty()
+	)
+	$Navigation/Actions/EventResult.text = str(receipt.get("title", ""))
+	$Navigation/Actions/EventResult.tooltip_text = str(receipt.get("details", ""))
 	$Battle.set_external_blocked(blocked)
 	$Navigation.visible = (
 		not _showing_menu
@@ -250,8 +260,18 @@ func _render_result(result: Dictionary, phase: int) -> void:
 
 func _on_inspect() -> void:
 	var state: Dictionary = run.view_snapshot()
+	$Inspect.title = data.text("ui.inspect")
 	$Inspect/Text.text = _build_text(state.deck, state.relics)
-	$Inspect.popup_centered()
+	_popup_sized($Inspect, inspect_preferred_size)
+
+
+func _on_event_result_pressed() -> void:
+	var receipt: Dictionary = run.view_snapshot().get("event_result", {})
+	if _showing_menu or run.phase != Types.RunPhase.MAP or receipt.is_empty():
+		return
+	$Inspect.title = str(receipt.title)
+	$Inspect/Text.text = str(receipt.details)
+	_popup_sized($Inspect, inspect_preferred_size)
 
 
 func _on_chapter_map_pressed() -> void:
@@ -276,20 +296,25 @@ func _render_chapter_map(state: Dictionary) -> void:
 func _on_main_resized() -> void:
 	if $ChapterMap.visible:
 		_fit_chapter_map()
+	if $Inspect.visible:
+		_popup_sized($Inspect, inspect_preferred_size)
 
 
 func _fit_chapter_map() -> void:
+	_popup_sized($ChapterMap, chapter_map_preferred_size)
+
+
+func _popup_sized(dialog: Window, preferred_size: Vector2i) -> void:
 	var available: Vector2i = Vector2i(get_viewport_rect().size) - chapter_map_viewport_margin
 	var window_size := Vector2i(
-		mini(chapter_map_preferred_size.x, available.x),
-		mini(chapter_map_preferred_size.y, available.y)
+		mini(preferred_size.x, available.x), mini(preferred_size.y, available.y)
 	)
 	# AcceptDialog resets to its content minimum during popup. Apply the scene's
 	# desired size afterward and preserve the popup's parent/screen centre.
-	$ChapterMap.popup_centered()
-	var center: Vector2i = $ChapterMap.position + $ChapterMap.size / 2
-	$ChapterMap.size = window_size
-	$ChapterMap.position = center - $ChapterMap.size / 2
+	dialog.popup_centered()
+	var center: Vector2i = dialog.position + dialog.size / 2
+	dialog.size = window_size
+	dialog.position = center - dialog.size / 2
 
 
 func _build_text(deck: Array, relics: Array) -> String:
@@ -326,6 +351,8 @@ func _on_node_action(
 		"choose_event_option":
 			error = run.choose_event_option(item_id, token, selection_id)
 	_finish_action(error)
+	if action == "choose_event_option" and error == "" and run.persistence_error == "":
+		_on_event_result_pressed()
 
 
 func _finish_action(error: String) -> void:

@@ -45,6 +45,7 @@ func run_tests() -> void:
 	_test_summon_lifecycle()
 	_test_share_slots_and_rounding()
 	_test_all_approved_cards()
+	_test_real_card_combinations()
 	_test_relic_opening_and_first_cards()
 	_test_success_relics_and_victory()
 	_test_bomb_refresh_dispel_and_expiry()
@@ -478,6 +479,87 @@ func _test_all_approved_cards() -> void:
 	expect(
 		battle.state.hand.is_empty() and battle.state.exhaust.size() == 1,
 		"A card cannot draw itself while resolving"
+	)
+
+
+func _test_real_card_combinations() -> void:
+	for upgraded in [false, true]:
+		for card_id in ["healer_cleanse", "first_aid"]:
+			var battle := _fresh(["purge_charm"])
+			var tank: Dictionary = battle.find_unit("warden")
+			tank.hp -= 40
+			battle.resolver.add_status(battle.find_unit("enemy_0"), tank, "poison", 2)
+			_put_card(battle, card_id, 1000, upgraded)
+			expect(battle.play_card(1000, "mender", "warden") == "")
+			var kinds: Array[String] = []
+			for record in battle.events.records:
+				if record.kind in ["dispel", "shield", "heal"]:
+					kinds.append(record.kind)
+			var base_heal: int = (
+				(9 if upgraded else 6) if card_id == "healer_cleanse" else (17 if upgraded else 12)
+			)
+			var expected_order: Array = (
+				["dispel", "shield", "heal"]
+				if card_id == "healer_cleanse"
+				else ["heal", "dispel", "shield"]
+			)
+			expect(
+				kinds == expected_order, "Real cleanse cards preserve their different effect order"
+			)
+			expect(tank.hp == tank.max_hp - 40 + base_heal + 3 and tank.shield == 4)
+			expect(not tank.statuses.has("poison"))
+		var flurry := _fresh(["assassin_seal", "weapon_stone"])
+		_put_card(flurry, "blade_flurry", 1000, upgraded)
+		expect(flurry.play_card(1000, "blade", "enemy_0") == "")
+		var hits: Array[int] = []
+		for record in flurry.events.records:
+			if record.kind == "damage":
+				hits.append(int(record.amount))
+		expect(
+			hits == ([10, 5, 5] if upgraded else [9, 4, 4]),
+			"Real flurry adds first-hit passive/seal once and weapon stone to every hit"
+		)
+		var revival := _fresh()
+		var blade: Dictionary = revival.find_unit("blade")
+		blade.passive_used = true
+		revival.state.hand = [
+			Models.card(1000, "mender_resuscitate", upgraded),
+			Models.card(1001, "tactic_guard"),
+			Models.card(1002, "double_stab")
+		]
+		revival.state.energy = 3
+		revival.resolver.damage({}, blade, blade.hp, 0, true)
+		expect(revival.state.removed.size() == 1)
+		expect(revival.play_card(1000, "mender", "blade") == "")
+		expect(
+			blade.hp == (25 if upgraded else 17) and blade.revives_used == 1,
+			"Real revive card restores ceil(55 * 30%/45%) and spends one quota"
+		)
+		expect(blade.passive_used and not revival.find_unit("mender").passive_used)
+		expect(revival.state.energy == 1 and revival.state.hand.size() == 1)
+		expect(revival.state.removed.is_empty() and revival.state.draw.size() == 1)
+		expect(revival.state.exhaust.size() == 1)
+		expect(
+			revival.play_card(1001, "blade", "blade") == "" and revival.state.energy == 0,
+			"Revived actor can immediately use the existing hand and remaining shared energy"
+		)
+	var retained := _fresh()
+	retained.state.hand = [
+		Models.card(1000, "warden_resolve"),
+		Models.card(1001, "mender_restore"),
+		Models.card(1002, "slash")
+	]
+	for index in range(10):
+		retained.state.draw.append(Models.card(2000 + index, "guard"))
+	_skip_enemies(retained)
+	expect(retained.end_turn() == "")
+	expect(not retained.find_card(1000).is_empty() and not retained.find_card(1001).is_empty())
+	expect(
+		(
+			retained.find_card(1002).is_empty()
+			and retained.state.discard == [Models.card(1002, "slash")]
+		),
+		"Both real retain cards stay in hand while an ordinary card enters discard"
 	)
 
 

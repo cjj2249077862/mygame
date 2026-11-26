@@ -30,6 +30,25 @@ class FailingMetaStore:
 		return super.write_slot(slot, payload, terminal, validator)
 
 
+class FailingTerminalStore:
+	extends "res://scripts/core/save_manager.gd"
+	var reject_terminal_run: bool = true
+	var reject_meta: bool = false
+	var rejected_writes: int = 0
+
+	func _init(path: String) -> void:
+		super(path)
+
+	func write_slot(
+		slot: String, payload: Dictionary, terminal: bool = false, validator: Callable = Callable()
+	) -> bool:
+		if (reject_terminal_run and slot == "run" and terminal) or (reject_meta and slot == "meta"):
+			rejected_writes += 1
+			last_error = "save_write_failed"
+			return false
+		return super.write_slot(slot, payload, terminal, validator)
+
+
 func run_tests() -> void:
 	data = Data.new()
 	if not expect(data.load_directory(), str(data.errors)):
@@ -37,12 +56,15 @@ func run_tests() -> void:
 	_test_json_checkpoint_types()
 	_test_bomb_checkpoint_round_trip()
 	_test_shop_and_camp()
+	_test_empty_shop_slots()
 	_test_failed_shop_commit()
 	_test_event_costs_and_copies()
+	_test_event_resolution_view()
 	_test_event_randomness()
 	_test_rewards_and_terminals()
 	_test_corruption_and_backup()
 	_test_terminal_meta_repair()
+	_test_terminal_save_blocks_menu()
 	for phase in [
 		Types.RunPhase.BATTLE,
 		Types.RunPhase.MAP,
@@ -262,6 +284,69 @@ func _test_shop_and_camp() -> void:
 	_reload(continued)
 
 
+func _test_empty_shop_slots() -> void:
+	var run: RefCounted = _fixture_run("empty_shop_slots")
+	if not _reach(run, "node_02_0"):
+		return
+	run.gold = 1000
+	run.relics.clear()
+	for relic in data.rows("relics"):
+		if relic.pool == "normal" and relic.id != "iron_rivet":
+			run.relics.append(relic.id)
+	if not expect(run.shop_refresh(run.action_token) == ""):
+		return
+	var available: Dictionary = {}
+	var card_slots: int = 0
+	var relic_slots: int = 0
+	var empty_slots: int = 0
+	for offer in run.shop.offers:
+		if offer.kind == "card":
+			card_slots += 1
+		else:
+			relic_slots += 1
+			if offer.item_id == "":
+				empty_slots += 1
+			else:
+				available = offer.duplicate(true)
+	if not expect(card_slots == 4 and relic_slots == 2 and empty_slots == 1):
+		return
+	expect(available.get("item_id") == "iron_rivet" and not available.get("sold_out", true))
+	_assert_empty_slot_rejections(run)
+	var offers: Array = run.shop.offers.duplicate(true)
+	run = _reload(run)
+	expect(run.shop.offers == offers, "One remaining relic and one empty slot survive reload")
+	if not expect(run.shop_buy(available.id, run.action_token) == ""):
+		return
+	expect(run.relics.count("iron_rivet") == 1)
+	if not expect(run.shop_refresh(run.action_token) == ""):
+		return
+	empty_slots = 0
+	for offer in run.shop.offers:
+		if offer.kind == "relic":
+			expect(offer.item_id == "" and offer.price == 0 and offer.sold_out)
+			empty_slots += 1
+	expect(
+		run.shop.offers.size() == 6 and empty_slots == 2, "An exhausted relic pool keeps both slots"
+	)
+	_assert_empty_slot_rejections(run)
+	offers = run.shop.offers.duplicate(true)
+	run = _reload(run)
+	expect(run.shop.offers == offers, "Both empty relic slots persist without rerolling")
+	_assert_empty_slot_rejections(run)
+
+
+func _assert_empty_slot_rejections(run: RefCounted) -> void:
+	for offer in run.view_snapshot().shop.offers:
+		if offer.item_id != "":
+			continue
+		expect(offer.price == 0 and offer.sold_out)
+		var before: Dictionary = _stable(run)
+		expect(run.shop_buy(offer.id, run.action_token) == "error.sold_out")
+		expect(
+			_stable(run) == before, "Empty-slot purchase preserves gold, token, inventory and RNG"
+		)
+
+
 func _test_failed_shop_commit() -> void:
 	var run := _fixture_run("failed_shop_commit")
 	if not _reach(run, "node_02_0"):
@@ -365,6 +450,53 @@ func _test_event_costs_and_copies() -> void:
 	)
 
 
+func _test_event_resolution_view() -> void:
+	var run: RefCounted = _fixture_run("event_resolution")
+	expect(
+		run.view_snapshot().event_result.is_empty(),
+		"No event result exists before entering an event"
+	)
+	if not _reach(run, "node_04_0"):
+		return
+	run.gold = 100
+	var missing: Array[int] = [2, 0, 20]
+	var actual: Array[int] = [2, 0, 18]
+	for index in range(run.party.size()):
+		run.party[index].hp = run.party[index].max_hp - missing[index]
+	expect(run.view_snapshot().event_result.is_empty(), "Unchosen event results stay hidden")
+	run = _reload(run)
+	expect(run.view_snapshot().event_result.is_empty(), "Reload does not reveal an unchosen result")
+	if not expect(run.choose_event_option("infirmary_treat", run.action_token) == ""):
+		return
+	var resolution: Dictionary = run.view_snapshot().event_result
+	if not expect(run.phase == Types.RunPhase.MAP and not resolution.is_empty()):
+		return
+	expect(
+		run.gold == 75 and resolution.details.contains(data.text("run.gold_cost", {"amount": 25}))
+	)
+	for index in range(run.party.size()):
+		var hero: Dictionary = run.party[index]
+		expect(hero.hp == hero.max_hp - missing[index] + actual[index])
+		var recovery_line: String = data.text(
+			"run.event.heal_unit", {"name": data.text(hero.name_key), "amount": actual[index]}
+		)
+		expect(
+			resolution.details.contains(recovery_line),
+			"Result displays each actual heal, including zero"
+		)
+	expect(resolution.title != "" and run.event_state.resolution == resolution)
+	run = _reload(run)
+	expect(
+		run.view_snapshot().event_result == resolution,
+		"Completed event result survives JSON reload"
+	)
+	expect(run.choose_node("node_05_0", run.action_token) == "")
+	expect(
+		run.view_snapshot().event_result.is_empty() and run.event_state.is_empty(),
+		"Entering the next node clears the completed result"
+	)
+
+
 func _test_event_randomness() -> void:
 	var run := _fixture_run("cache")
 	if not _reach(run, "node_08_0"):
@@ -372,6 +504,7 @@ func _test_event_randomness() -> void:
 	var generated: Dictionary = run.event_state.duplicate(true)
 	var random_state: int = run.rng.state
 	var visible: Dictionary = run.view_snapshot().event
+	expect(run.view_snapshot().event_result.is_empty(), "Random outcome is hidden before selection")
 	run.view_snapshot()
 	expect(
 		run.event_state == generated and run.rng.state == random_state,
@@ -405,6 +538,32 @@ func _test_event_randomness() -> void:
 	expect(
 		_stable(run, true) == _stable(identical, true),
 		"Reloading the same event produces the same gold, HP, relic and random state"
+	)
+	var resolution: Dictionary = run.view_snapshot().event_result
+	var chosen: Dictionary = generated.results.cache_force
+	for effect in data.event_effects(chosen.outcome_id):
+		match effect.kind:
+			"gold":
+				expect(
+					resolution.details.contains(
+						data.text("run.event.gold", {"amount": effect.amount})
+					)
+				)
+			"hp_loss":
+				expect(
+					resolution.details.contains(
+						data.text("run.event.hp_loss", {"amount": effect.amount})
+					)
+				)
+			"grant_relic":
+				expect(resolution.details.contains(data.relic_text(chosen.relics[effect.id])))
+	expect(
+		run.event_state.resolution == resolution, "Only the stored chosen branch becomes the result"
+	)
+	run = _reload(run)
+	expect(
+		run.view_snapshot().event_result == resolution,
+		"The chosen random result is not rerolled on reload"
 	)
 	var resources := _resources(leave)
 	var token: int = leave.action_token
@@ -632,6 +791,37 @@ func _test_terminal_meta_repair() -> void:
 		Run.new(data, directory).meta == repaired_meta,
 		"A failed then retried repair records the same result exactly once"
 	)
+
+
+func _test_terminal_save_blocks_menu() -> void:
+	for failed_slot in ["run", "meta"]:
+		var run: RefCounted = _fixture_run("failed_terminal_" + failed_slot)
+		var directory: String = run.saves.directory
+		var failing: RefCounted = FailingTerminalStore.new(directory)
+		failing.reject_terminal_run = failed_slot == "run"
+		failing.reject_meta = failed_slot == "meta"
+		run.saves = failing
+		var run_id: String = run.run_id
+		expect(run.abandon_run() == "error.save")
+		expect(run.phase == Types.RunPhase.ABANDONED and run.meta.abandoned == 1)
+		var terminal: Dictionary = _stable(run)
+		expect(not run.return_to_menu(), "Unwritten terminal progress cannot return to the menu")
+		expect(run.phase == Types.RunPhase.ABANDONED and _stable(run) == terminal)
+		expect(failing.rejected_writes == 2, "Menu return retries the failed terminal checkpoint")
+		failing.reject_terminal_run = false
+		failing.reject_meta = false
+		if not expect(run.retry_save() and run.persistence_error == ""):
+			return
+		expect(
+			_stable(run) == terminal, "Save retry persists the terminal result without replaying it"
+		)
+		expect(run.return_to_menu() and run.phase == Types.RunPhase.IDLE)
+		var restarted: RefCounted = Run.new(data, directory)
+		expect(
+			not restarted.has_saved_run(), "Restart cannot resurrect the retired active checkpoint"
+		)
+		expect(restarted.meta.abandoned == 1 and restarted.meta.finished_ids.count(run_id) == 1)
+		expect(restarted.meta.records.size() == 1 and restarted.meta.records[0].run_id == run_id)
 
 
 func _directory(label: String) -> String:

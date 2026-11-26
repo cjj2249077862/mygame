@@ -167,7 +167,7 @@ func shop_buy(offer_id: String, token: int) -> String:
 	for candidate in shop.offers:
 		if candidate.id == offer_id:
 			offer = candidate
-	if offer.is_empty() or offer.sold_out:
+	if offer.is_empty() or offer.sold_out or offer.item_id == "":
 		return "error.sold_out"
 	if gold < offer.price:
 		return "error.gold"
@@ -278,31 +278,74 @@ func choose_event_option(option_id: String, token: int, selection_id: String = "
 	var selected_hero := _find_hero(selection_id)
 	var selected_card := _find_copy(int(selection_id)) if selection_id.is_valid_int() else {}
 	var outcome: Dictionary = event_state.results[option_id]
+	var resolved: Array[String] = []
 	# Preconditions cover every possible outcome, before costs are consumed.
 	gold -= int(option.cost_gold)
+	if int(option.cost_gold) > 0:
+		resolved.append(data.text("run.gold_cost", {"amount": option.cost_gold}))
 	if int(option.cost_hp) > 0:
 		selected_hero.hp -= int(option.cost_hp)
+		resolved.append(
+			(
+				data.text(selected_hero.name_key)
+				+ "："
+				+ data.text("run.hp_cost", {"amount": option.cost_hp})
+			)
+		)
 	for effect in data.event_effects(outcome.outcome_id):
 		match effect.kind:
 			"gold":
 				gold += int(effect.amount)
+				resolved.append(data.text("run.event.gold", {"amount": effect.amount}))
 			"heal":
 				var targets: Array = party if effect.target == "party" else [selected_hero]
 				for hero in targets:
 					if not hero.is_empty() and hero.hp > 0:
-						hero.hp = mini(int(hero.max_hp), int(hero.hp) + int(effect.amount))
+						var recovered := mini(int(hero.max_hp - hero.hp), int(effect.amount))
+						hero.hp += recovered
+						resolved.append(
+							data.text(
+								"run.event.heal_unit",
+								{"name": data.text(hero.name_key), "amount": recovered}
+							)
+						)
 			"hp_loss":
 				selected_hero.hp -= int(effect.amount)
+				resolved.append(
+					(
+						data.text(selected_hero.name_key)
+						+ "："
+						+ data.text("run.event.hp_loss", {"amount": effect.amount})
+					)
+				)
 			"upgrade":
+				var before: String = data.card_text(selected_card)
 				selected_card.upgraded = true
+				resolved.append(
+					data.text(
+						"run.upgrade_compare",
+						{"before": before, "after": data.card_text(selected_card)}
+					)
+				)
 			"remove":
+				resolved.append(
+					data.text("run.event.remove") + "：\n" + data.card_text(selected_card)
+				)
 				deck.erase(selected_card)
 			"grant_relic":
 				var awarded: String = outcome.relics[effect.id]
 				if awarded not in relics:
 					relics.append(awarded)
+					resolved.append(
+						data.text("run.event.grant_relic") + "：\n" + data.relic_text(awarded)
+					)
 	event_state["chosen_option"] = option_id
 	event_state["chosen_selection"] = selection_id
+	var event_definition: Dictionary = data.definition("events", event_state.event_id)
+	event_state["resolution"] = {
+		"title": data.text(event_definition.name_key),
+		"details": data.text("run.event.leave") if resolved.is_empty() else "\n\n".join(resolved)
+	}
 	_complete_node()
 	return ""
 
@@ -361,7 +404,7 @@ func continue_run() -> bool:
 
 
 func return_to_menu() -> bool:
-	if phase in ACTIVE_PHASES and not _checkpoint():
+	if (phase in ACTIVE_PHASES or persistence_error != "") and not _checkpoint():
 		changed.emit()
 		return false
 	_elapsed_base = elapsed_seconds()
@@ -674,14 +717,15 @@ func _generate_offers() -> void:
 			data.economy("shop_card_slots" if kind == "card" else "shop_relic_slots")
 		)
 		var items := _draw_items(kind, "normal", count, "shop")
-		for index in range(items.size()):
+		for index in range(count):
+			var item_id: String = items[index] if index < items.size() else ""
 			shop.offers.append(
 				{
 					"id": "%s_%d_%d" % [kind, shop.refresh_count, index],
 					"kind": kind,
-					"item_id": items[index],
-					"price": data.price_for(kind, items[index]),
-					"sold_out": false
+					"item_id": item_id,
+					"price": data.price_for(kind, item_id) if item_id != "" else 0,
+					"sold_out": item_id == ""
 				}
 			)
 
@@ -853,6 +897,7 @@ func view_snapshot() -> Dictionary:
 		"camp": {},
 		"shop": {},
 		"event": {},
+		"event_result": {},
 		"rewards": {},
 		"result": result_snapshot(),
 		"error": error,
@@ -973,6 +1018,8 @@ func view_snapshot() -> Dictionary:
 			"body": data.text(definition.description_key),
 			"options": options
 		}
+	if phase == Types.RunPhase.MAP and event_state.get("chosen_option", "") != "":
+		view.event_result = event_state.get("resolution", {}).duplicate(true)
 	if phase == Types.RunPhase.REWARD:
 		view.rewards = {
 			"cards": reward_candidates.duplicate(),
@@ -1255,6 +1302,15 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 	for key in ["map", "shop", "event", "battle", "result"]:
 		if not candidate.get(key) is Dictionary:
 			return false
+	# Older completed-event checkpoints do not contain display-only resolution text.
+	if candidate.event.has("resolution"):
+		var resolution: Variant = candidate.event.resolution
+		if (
+			not resolution is Dictionary
+			or not resolution.get("title") is String
+			or not resolution.get("details") is String
+		):
+			return false
 	for key in ["reward_cards_done", "reward_relics_done"]:
 		if not candidate.get(key) is bool:
 			return false
@@ -1460,16 +1516,21 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 				return false
 			if (
 				offer.get("kind") not in ["card", "relic"]
+				or not offer.get("item_id") is String
 				or not offer.get("sold_out") is bool
 				or not _integer(offer.get("price"))
 			):
 				return false
+			offer_ids[offer.id] = true
+			if offer.item_id == "":
+				if not offer.sold_out or offer.price != 0:
+					return false
+				continue
 			var definition: Dictionary = data.definition(
-				"cards" if offer.kind == "card" else "relics", str(offer.get("item_id", ""))
+				"cards" if offer.kind == "card" else "relics", offer.item_id
 			)
 			if definition.is_empty() or not _eligible(definition, candidate.party):
 				return false
-			offer_ids[offer.id] = true
 	if saved_phase == Types.RunPhase.EVENT:
 		if (
 			candidate.event.get("event_id") != current.content_id

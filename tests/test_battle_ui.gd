@@ -569,6 +569,8 @@ func _advance_to_battle() -> void:
 					if str(option.id).ends_with("_leave"):
 						app.get_node("NodePanel")._on_event_option(option, int(state.token))
 						app.get_node("NodePanel/Picker").get_ok_button().pressed.emit()
+						if app.get_node("Inspect").visible:
+							app.get_node("Inspect").get_ok_button().pressed.emit()
 						found = true
 						break
 				if not expect(found, "Every event includes a free leave option"):

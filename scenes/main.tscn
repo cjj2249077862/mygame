@@ -19,6 +19,7 @@ theme = ExtResource("2")
 script = ExtResource("1")
 chapter_map_preferred_size = Vector2i(1180, 740)
 chapter_map_viewport_margin = Vector2i(40, 40)
+inspect_preferred_size = Vector2i(850, 580)
 
 [node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
@@ -148,6 +149,10 @@ layout_mode = 2
 [node name="Map" type="Button" parent="Navigation/Actions"]
 layout_mode = 2
 
+[node name="EventResult" type="Button" parent="Navigation/Actions"]
+visible = false
+layout_mode = 2
+
 [node name="Menu" type="Button" parent="Navigation/Actions"]
 layout_mode = 2
 
@@ -170,7 +175,6 @@ offset_right = -12.0
 offset_bottom = -64.0
 
 [node name="Inspect" type="AcceptDialog" parent="."]
-size = Vector2i(850, 580)
 
 [node name="Text" type="RichTextLabel" parent="Inspect"]
 anchors_preset = 15

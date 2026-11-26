@@ -22,6 +22,7 @@ func run_tests() -> void:
 	data = app.data
 	app.get_node("Battle/Margin/Content/Actions/Fast").button_pressed = true
 	await _test_continue_and_confirmations()
+	await _test_event_receipt()
 	app.hide()
 	await _test_map()
 	await _test_node_choices()
@@ -47,6 +48,13 @@ func _test_continue_and_confirmations() -> void:
 	app.get_node("Menu/Content/Start").pressed.emit()
 	await _settle()
 	await _test_chapter_overview()
+	app.get_node("Navigation/Actions/Inspect").pressed.emit()
+	await _check_popup_sizes(app.get_node("Inspect"), Vector2i(850, 580), ["Text"])
+	expect(
+		app.get_node("Inspect/Text").text.contains(data.text("ui.pile.deck")),
+		"Inspect exposes the current deck in its readable content area"
+	)
+	app.get_node("Inspect").get_ok_button().pressed.emit()
 	expect(app.run.has_saved_run(), "Opening battle is saved")
 	expect(app.run.battle.end_turn() == "")
 	await _settle()
@@ -94,6 +102,17 @@ func _test_continue_and_confirmations() -> void:
 		app.get_node("Result").visible and not app.run.has_saved_run(),
 		"Abandon clears only the active run and shows its summary"
 	)
+	app.run.persistence_error = "save_write_failed"
+	app._on_run_changed()
+	expect(
+		(
+			app.get_node("Result/Content/Restart").disabled
+			and app.get_node("Result/Content/Menu").disabled
+		),
+		"An unsaved terminal result blocks replacement and returning to the menu"
+	)
+	app.run.persistence_error = ""
+	app._on_run_changed()
 
 
 func _test_chapter_overview() -> void:
@@ -272,6 +291,9 @@ func _test_node_choices() -> void:
 	panel.render(state, data)
 	await _check_layout_sizes(panel, ["Margin/Content/Camp/Rest", "Margin/Content/Camp/Upgrade"])
 	panel.get_node("Margin/Content/Camp/Upgrade").pressed.emit()
+	await _check_popup_sizes(
+		panel.get_node("Picker"), Vector2i(800, 580), ["Content/Scroll", "Content/Preview"]
+	)
 	expect(panel.get_node("Picker").get_ok_button().disabled, "Upgrade needs a selected card copy")
 	panel.get_node("Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
 	expect(
@@ -339,10 +361,20 @@ func _test_node_choices() -> void:
 		"Shop distinguishes purchasable, sold-out and empty positions"
 	)
 	expect(
+		(
+			options.get_child(1).text.contains(data.text("ui.sold_out"))
+			and options.get_child(2).text == data.text("ui.out_of_stock")
+		),
+		"Purchased and missing stock have distinct visible labels"
+	)
+	expect(
 		panel.get_node("Margin/Content/ShopActions/Refresh").disabled,
 		"Unaffordable refresh is disabled"
 	)
 	panel.get_node("Margin/Content/ShopActions/Remove").pressed.emit()
+	await _check_popup_sizes(
+		panel.get_node("Picker"), Vector2i(800, 580), ["Content/Scroll", "Content/Preview"]
+	)
 	panel.get_node("Picker/Content/Scroll/Cards").get_child(1).pressed.emit()
 	expect(
 		panel.get_node("Picker/Content/Preview").text.contains("40"),
@@ -374,6 +406,9 @@ func _test_node_choices() -> void:
 	panel.render(state, data)
 	await _check_layout_sizes(panel, ["Margin/Content/Body", "Margin/Content/OptionsScroll"])
 	options.get_child(0).pressed.emit()
+	await _check_popup_sizes(
+		panel.get_node("Picker"), Vector2i(800, 580), ["Content/Scroll", "Content/Preview"]
+	)
 	expect(
 		panel.get_node("Picker").get_ok_button().disabled,
 		"Life-cost events require an eligible selected hero"
@@ -453,6 +488,165 @@ func _test_reward_sections() -> void:
 	)
 	reward.queue_free()
 	await process_frame
+
+
+func _test_event_receipt() -> void:
+	var path: Array = []
+	for seed_value in range(410, 426):
+		if not expect(app.run.start(seed_value), "Start isolated event UI route"):
+			return
+		path = _path_to_event(app.run.chapter_map)
+		if not path.is_empty():
+			break
+		expect(app.run.abandon_run() == "")
+	if not expect(not path.is_empty(), "A bounded seed search supplies a reachable event"):
+		return
+	await _settle()
+	for next_id in path.slice(1):
+		if app.run.phase == Types.RunPhase.BATTLE:
+			var engine: RefCounted = app.run.battle
+			for enemy in engine.state.enemies:
+				if enemy.hp <= 0:
+					continue
+				enemy.hp = 1
+				enemy.shield = 0
+				engine.state.energy = 10
+				var copy_id := -1
+				for pile in ["hand", "draw", "discard"]:
+					for copy in engine.state[pile]:
+						if copy.card_id == "slash":
+							copy_id = int(copy.copy_id)
+							if pile != "hand":
+								engine.state[pile].erase(copy)
+								engine.state.hand.append(copy)
+							break
+					if copy_id >= 0:
+						break
+				if not expect(copy_id >= 0 and engine.play_card(copy_id, "warden", enemy.id) == ""):
+					return
+				await _settle()
+		if app.run.phase == Types.RunPhase.REWARD:
+			if not app.run.reward_cards_done:
+				expect(app.run.skip_reward(app.run.action_token))
+			if app.run.phase == Types.RunPhase.REWARD and not app.run.reward_relics_done:
+				expect(app.run.skip_relic(app.run.action_token))
+		if app.run.phase == Types.RunPhase.CAMP:
+			expect(app.run.camp_rest(app.run.action_token) == "")
+		if app.run.phase == Types.RunPhase.SHOP:
+			expect(app.run.leave_shop(app.run.action_token) == "")
+		if not expect(app.run.choose_node(next_id, app.run.action_token) == ""):
+			return
+		await _settle()
+	if not expect(app.run.phase == Types.RunPhase.EVENT):
+		return
+	expect(
+		(
+			app.run.view_snapshot().get("event_result", {}).is_empty()
+			and not app.get_node("Navigation/Actions/EventResult").visible
+		),
+		"No outcome is exposed before the player settles an event option"
+	)
+	var choices: Array = app.run.view_snapshot().event.options
+	var selected := -1
+	for index in range(choices.size()):
+		if choices[index].enabled and not str(choices[index].id).ends_with("_leave"):
+			selected = index
+			break
+	if not expect(selected >= 0, "The event fixture has an affordable non-leave choice"):
+		return
+	(
+		app
+		. get_node("NodePanel/Margin/Content/OptionsScroll/Options")
+		. get_child(selected)
+		. pressed
+		. emit()
+	)
+	if choices[selected].selection != "none":
+		app.get_node("NodePanel/Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
+	app.get_node("NodePanel/Picker").get_ok_button().pressed.emit()
+	await process_frame
+	var receipt: Dictionary = app.run.view_snapshot().get("event_result", {})
+	if not expect(not receipt.is_empty(), "Settled event exposes a result receipt"):
+		return
+	expect(
+		app.run.phase == Types.RunPhase.MAP and app.get_node("Inspect").visible,
+		"The result is displayed after the event's one completed transaction"
+	)
+	expect(
+		(
+			app.get_node("Inspect").title == receipt.title
+			and app.get_node("Inspect/Text").text == receipt.details
+		),
+		"The popup displays the actual core result, not its pre-choice probabilities"
+	)
+	await _check_popup_sizes(app.get_node("Inspect"), Vector2i(850, 580), ["Text"])
+	app.get_node("Inspect").get_ok_button().pressed.emit()
+	app.get_node("Navigation/Actions/Menu").pressed.emit()
+	app.get_node("Menu/Content/Continue").pressed.emit()
+	await _settle()
+	expect(
+		app.run.view_snapshot().event_result == receipt,
+		"Continue keeps the settled receipt without repeating the event"
+	)
+	var button: Button = app.get_node("Navigation/Actions/EventResult")
+	expect(
+		button.visible and button.text == receipt.title and button.tooltip_text == receipt.details,
+		"A saved event result has a readable review entry on the map"
+	)
+	button.pressed.emit()
+	expect(app.get_node("Inspect").visible and app.get_node("Inspect/Text").text == receipt.details)
+	app.get_node("Inspect").get_ok_button().pressed.emit()
+	for node in app.run.view_snapshot().map.nodes:
+		if node.available:
+			app.get_node("Map")._buttons[node.id].pressed.emit()
+			break
+	await _settle()
+	expect(
+		app.run.view_snapshot().event_result.is_empty() and not button.visible,
+		"Entering the next node removes the previous event's review entry"
+	)
+	expect(app.run.abandon_run() == "")
+
+
+func _path_to_event(chapter: Dictionary) -> Array:
+	var nodes: Dictionary = {}
+	for node in chapter.nodes:
+		nodes[node.id] = node
+	var pending: Array = [[chapter.start_id]]
+	var seen: Dictionary = {}
+	while not pending.is_empty():
+		var path: Array = pending.pop_front()
+		var id: String = path.back()
+		if seen.has(id):
+			continue
+		seen[id] = true
+		if nodes[id].kind == "event":
+			return path
+		for next_id in nodes[id].next:
+			pending.append(path + [next_id])
+	return []
+
+
+func _check_popup_sizes(dialog: Window, expected_size: Vector2i, paths: Array) -> void:
+	for logical_size in [Vector2i(1280, 800), Vector2i(1200, 760), Vector2i(1440, 900)]:
+		await _set_logical_size(logical_size)
+		expect(
+			dialog.visible and dialog.size == expected_size,
+			"Popup preserves its useful content size: %s / %s" % [dialog.name, dialog.size]
+		)
+		var bounds: Rect2 = root.get_visible_rect().grow(1)
+		expect(bounds.encloses(Rect2(Vector2(dialog.position), Vector2(dialog.size))))
+		var inner: Rect2 = dialog.get_visible_rect().grow(1)
+		for path in paths:
+			var control: Control = dialog.get_node(path)
+			expect(
+				(
+					control.size.x > 0
+					and control.size.y > 0
+					and inner.encloses(control.get_global_rect())
+				),
+				"Popup list, preview or text remains visible: %s/%s" % [dialog.name, path]
+			)
 
 
 func _apply_node_margins(control: Control) -> void:

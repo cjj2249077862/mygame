@@ -34,20 +34,70 @@ class ExportTests(unittest.TestCase):
 
     def test_chapter_content_and_initial_lineup_coverage(self):
         cards=self.books['cards']['sheets']['main']
-        heroes=self.books['characters']['sheets']['main']
+        initial_ids={'warden','blade','mender'}
+        self.assertEqual(set(EXPORT.CONTRACT['initial_lineup']),initial_ids)
+        heroes=[h for h in self.books['characters']['sheets']['main'] if h['id'] in initial_ids]
+        self.assertEqual({h['id'] for h in heroes},initial_ids)
         self.assertEqual(sum(bool(c['role']) for c in cards),18)
         self.assertEqual(sum(bool(c['owner']) for c in cards),18)
         self.assertEqual(sum(not c['owner'] and not c['role'] for c in cards),4)
+        for hero in heroes:
+            self.assertEqual(sum(c['role']==hero['role'] for c in cards),6)
+            self.assertEqual(sum(c['owner']==hero['id'] for c in cards),6)
+        card_weights={(w['source'],w['rarity']):w['weight'] for w in self.books['economy']['sheets']['weights'] if w['kind']=='card'}
         for card in cards:
             self.assertTrue(any((not card['owner'] or card['owner']==h['id']) and (not card['role'] or card['role']==h['role']) for h in heroes),card['id'])
+            self.assertTrue(card['reward'],card['id'])
+            for source in ('battle','elite','boss','shop'):
+                self.assertGreater(card_weights[source,card['rarity']],0,f'{source}/{card["id"]}')
         relics=self.books['relics']['sheets']['main']
         self.assertEqual(len(relics),15)
         self.assertEqual(sum(r['pool']=='boss' for r in relics),3)
+        for relic in relics:
+            self.assertTrue(any((not relic['owner'] or relic['owner']==h['id']) and (not relic['role'] or relic['role']==h['role']) for h in heroes),relic['id'])
         enemies=self.books['encounters']['sheets']['enemies']
         self.assertEqual(sum(e['kind']!='boss' for e in enemies),10)
         self.assertEqual(sum(e['kind']=='boss' for e in enemies),1)
         self.assertEqual(len(self.books['events']['sheets']['main']),3)
         self.assertEqual(len(EXPORT.BOOKS),10)
+
+    def test_approved_chapter_delivery_ids_and_placement(self):
+        # This is the chapter-one delivery checklist, not a runtime content cap.
+        # Generic additions remain valid in test_new_character_and_reusable_card_need_no_new_script.
+        expected_cards=set('''
+            slash guard tank_bulwark tank_crush tank_cover tank_break
+            stab parry assassin_precise assassin_feint assassin_toxin assassin_opening
+            smite heal healer_renew healer_shelter healer_cleanse healer_ember
+            shield_bash warden_fortress warden_rally warden_command warden_wall warden_resolve
+            double_stab blade_execution blade_flurry blade_disrupt blade_exploit blade_prepare
+            first_aid mender_restore mender_mass_heal mender_purify mender_resuscitate mender_reserve
+            tactic_plan tactic_guard tactic_bandage tactic_purge
+        '''.split())
+        expected_relics=set('''
+            iron_rivet vanguard_banner sentry_lens quiet_incense tank_buckle assassin_seal
+            mercy_charm purge_charm shock_ring medical_kit camp_kettle weapon_stone
+            boss_furnace boss_tome boss_aegis
+        '''.split())
+        expected_enemies=set('''
+            sentry cultist sharpshooter shield_guard torchbearer prison_hound hexer
+            captain gaoler alchemist boss_iron_warden
+        '''.split())
+        expected_events={'event_abandoned_infirmary','event_forgotten_anvil','event_sealed_cache'}
+        for book,sheet,expected in (
+            ('cards','main',expected_cards),('relics','main',expected_relics),
+            ('encounters','enemies',expected_enemies),('events','main',expected_events),
+        ):
+            self.assertEqual({r['id'] for r in self.books[book]['sheets'][sheet]},expected,book)
+        relics=self.books['relics']['sheets']['main']
+        self.assertEqual({r['id'] for r in relics if r['pool']=='boss'},
+                         {'boss_furnace','boss_tome','boss_aegis'})
+        pools=self.books['maps']['sheets']['pools']
+        chapter=next(m for m in self.books['maps']['sheets']['main'] if m['id']=='chapter_one')
+        self.assertEqual({p['content_id'] for p in pools if p['map_id']==chapter['id'] and p['kind']=='event'},expected_events)
+        encounters={r['id']:r for r in self.books['encounters']['sheets']['main']}
+        used_encounters={chapter['first_encounter_id'],chapter['boss_encounter_id']}
+        used_encounters.update(p['content_id'] for p in pools if p['map_id']==chapter['id'] and p['kind'] in ('battle','elite'))
+        self.assertEqual({e for id in used_encounters for e in encounters[id]['enemies'].split(',')},expected_enemies)
 
     def test_phase_two_invalid_references_and_semantics(self):
         mutations=[

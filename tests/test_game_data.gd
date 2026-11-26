@@ -42,6 +42,7 @@ func run_tests() -> void:
 	_test_keyword_details(data)
 	_test_number_presentation(data)
 	_test_phase_two_data(data, good)
+	_test_query_isolation(data, good)
 	_test_bundle_rejection(data, good)
 	_test_heal_export_to_presentation(good)
 
@@ -116,6 +117,40 @@ func _test_phase_two_data(data: RefCounted, good: Dictionary) -> void:
 			break
 	expect(not data.validate(bad), "Life affordability covers the sum of every effect in a branch")
 	expect(data.books == good, "Invalid phase-two content does not replace the active bundle")
+
+
+func _test_query_isolation(data: RefCounted, good: Dictionary) -> void:
+	var phase: Dictionary = data.enemy_phases("boss_iron_warden")[0]
+	var trigger: Dictionary = data.relic_triggers(["iron_rivet"])[0]
+	var queries: Array = [
+		["rows", ["cards"]],
+		["definition", ["cards", "heal"]],
+		["chapter_definition", []],
+		["card_effects", ["heal", false]],
+		["enemy_intents", ["boss_iron_warden"]],
+		["enemy_phases", ["boss_iron_warden"]],
+		["encounter_effects", [phase.enter_effect_group]],
+		["map_rules", ["chapter_one"]],
+		["map_pool", ["chapter_one"]],
+		["event_options", ["event_sealed_cache"]],
+		["event_outcomes", ["cache_force"]],
+		["event_effects", ["cache_force.2"]],
+		["relic_triggers", [["iron_rivet"]]],
+		["relic_effects", [trigger.effect_group]],
+	]
+	for query in queries:
+		var value: Variant = data.callv(query[0], query[1])
+		if not expect(not value.is_empty(), "Query fixture is populated: %s" % query[0]):
+			return
+		# Editing a returned row and clearing the outer collection must both be local.
+		if value is Array:
+			value[0]["id"] = "changed_query_fixture"
+		else:
+			value["id"] = "changed_query_fixture"
+		value.clear()
+		if not expect(data.books == good, "Query cannot modify active data: %s" % query[0]):
+			data.books = good.duplicate(true)
+			return
 
 
 func _test_additional_validation(data: RefCounted, good: Dictionary) -> void:

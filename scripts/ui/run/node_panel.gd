@@ -6,6 +6,8 @@ signal action_requested(
 
 const Types = preload("res://scripts/core/enums.gd")
 @export var choice_minimum_size: Vector2
+@export var picker_preferred_size: Vector2i
+@export var picker_viewport_margin: Vector2i
 var _data: RefCounted
 var _state: Dictionary = {}
 var _token := -1
@@ -28,6 +30,7 @@ func _ready() -> void:
 	$Picker.confirmed.connect(_on_picker_confirmed)
 	$Picker.canceled.connect(_clear_picker)
 	$Picker.window_input.connect(_on_picker_input)
+	resized.connect(_on_resized)
 
 
 func render(state: Dictionary, data: RefCounted) -> void:
@@ -156,7 +159,7 @@ func _open_picker(mode: String) -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.pressed.connect(_on_copy_selected.bind(card.duplicate(true)))
 		$Picker/Content/Scroll/Cards.add_child(button)
-	$Picker.popup_centered()
+	_fit_picker()
 
 
 func _on_copy_selected(card: Dictionary) -> void:
@@ -214,7 +217,23 @@ func _on_event_option(option: Dictionary, token: int) -> void:
 			)
 		)
 		$Picker/Content/Scroll/Cards.add_child(button)
+	_fit_picker()
+
+
+func _on_resized() -> void:
+	if $Picker.visible:
+		_fit_picker()
+
+
+func _fit_picker() -> void:
+	var available: Vector2i = Vector2i(get_viewport_rect().size) - picker_viewport_margin
+	var desired := Vector2i(
+		mini(picker_preferred_size.x, available.x), mini(picker_preferred_size.y, available.y)
+	)
 	$Picker.popup_centered()
+	var center: Vector2i = $Picker.position + $Picker.size / 2
+	$Picker.size = desired
+	$Picker.position = center - $Picker.size / 2
 
 
 func _on_event_target(

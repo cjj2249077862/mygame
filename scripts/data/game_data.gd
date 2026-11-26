@@ -101,7 +101,7 @@ func validate(candidate: Dictionary) -> bool:
 	books = candidate
 	for book in BOOKS:
 		for sheet in books[book].sheets:
-			for row in rows(book, sheet):
+			for row in _source_rows(book, sheet):
 				for key in row:
 					if str(key).ends_with("_key"):
 						_check(
@@ -110,7 +110,7 @@ func validate(candidate: Dictionary) -> bool:
 							key,
 							"missing text"
 						)
-	for row in rows("texts_zh_cn"):
+	for row in _source_rows("texts_zh_cn"):
 		_placeholders(row.text, row)
 	for key in contract.required_texts:
 		var row := definition("texts_zh_cn", key)
@@ -124,7 +124,7 @@ func validate(candidate: Dictionary) -> bool:
 				"text",
 				"text/program placeholder mismatch"
 			)
-	for c in rows("cards"):
+	for c in _source_rows("cards"):
 		_numeric(c, "cost", 0, true)
 		_check(c.get("target") in contract.card_targets, c, "target", "invalid target")
 		_check(c.get("role") in contract.roles + [""], c, "role", "invalid role")
@@ -163,12 +163,12 @@ func validate(candidate: Dictionary) -> bool:
 				"description_key",
 				"effect/template parameter mismatch"
 			)
-	for e in rows("cards", "effects"):
+	for e in _source_rows("cards", "effects"):
 		var c := definition("cards", str(e.get("card_id")))
 		_check(not c.is_empty(), e, "card_id", "missing card")
 		_check(e.get("upgraded") is bool, e, "upgraded", "must be boolean")
 		_validate_effect(e, "cards", c.get("target", ""))
-	for card in rows("cards"):
+	for card in _source_rows("cards"):
 		var base := card_effects(card.id, false)
 		var upgraded := card_effects(card.id, true)
 		_check(base.size() == upgraded.size(), card, "effects", "upgrade changes effect count")
@@ -191,14 +191,14 @@ func validate(candidate: Dictionary) -> bool:
 			"id",
 			"missing initial character: " + id
 		)
-	for u in rows("characters"):
+	for u in _source_rows("characters"):
 		_numeric(u, "max_hp", 1, true)
 		_numeric(u, "strength", 0, true)
 		_numeric(u, "passive_amount", 0, true)
 		_check(u.get("role") in contract.roles, u, "role", "unknown role")
 		_check(u.get("passive") in contract.passives, u, "passive", "unsupported passive")
 		var has_starter := false
-		for entry in rows("characters", "starter"):
+		for entry in _source_rows("characters", "starter"):
 			has_starter = has_starter or entry.character_id == u.id
 		_check(has_starter, u, "starter", "character has no starting cards")
 		if u.portrait != "":
@@ -208,7 +208,7 @@ func validate(candidate: Dictionary) -> bool:
 				"portrait",
 				"missing portrait resource"
 			)
-	for row in rows("characters", "starter"):
+	for row in _source_rows("characters", "starter"):
 		var c := definition("cards", str(row.get("card_id")))
 		var u := definition("characters", str(row.get("character_id")))
 		_check(not c.is_empty() and not u.is_empty(), row, "card_id", "missing reference")
@@ -220,7 +220,7 @@ func validate(candidate: Dictionary) -> bool:
 				"unusable starter"
 			)
 		_numeric(row, "count", 1, true)
-	for row in rows("encounters", "enemies"):
+	for row in _source_rows("encounters", "enemies"):
 		for key in ["max_hp", "strength", "interrupt_threshold", "immunity_count"]:
 			_numeric(row, key, 1 if key == "max_hp" else 0, true)
 		_check(
@@ -231,14 +231,14 @@ func validate(candidate: Dictionary) -> bool:
 		)
 		_check(not enemy_intents(row.id).is_empty(), row, "intents", "missing intent")
 		var pools: Dictionary = {}
-		for intent in rows("encounters", "intents"):
+		for intent in _source_rows("encounters", "intents"):
 			if intent.enemy_id == row.id:
 				pools[intent.pool_id] = true
 		for pool in pools:
 			var ordered := enemy_intents(row.id, pool)
 			for i in range(ordered.size()):
 				_check(ordered[i].order == i + 1, ordered[i], "order", "non-contiguous intents")
-	for row in rows("encounters", "intents"):
+	for row in _source_rows("encounters", "intents"):
 		_check(
 			not definition("encounters", str(row.get("enemy_id")), "enemies").is_empty(),
 			row,
@@ -263,7 +263,7 @@ func validate(candidate: Dictionary) -> bool:
 		for key in ["amount", "stacks", "hits", "order"]:
 			_numeric(row, key, 1 if key in ["hits", "order"] else 0, true)
 		_check((row.status != "") == (row.stacks > 0), row, "stacks", "status and stacks disagree")
-	for row in rows("encounters"):
+	for row in _source_rows("encounters"):
 		_check(
 			row.get("enemies") is String and not row.get("enemies", "").is_empty(),
 			row,
@@ -279,7 +279,7 @@ func validate(candidate: Dictionary) -> bool:
 			)
 		_numeric(row, "order", 1, true)
 		_numeric(row, "gold", 0, true)
-	var ordered_encounters := rows("encounters").duplicate(true)
+	var ordered_encounters := _source_rows("encounters").duplicate(true)
 	ordered_encounters.sort_custom(
 		func(a: Dictionary, b: Dictionary) -> bool: return a.order < b.order
 	)
@@ -291,7 +291,7 @@ func validate(candidate: Dictionary) -> bool:
 			"non-contiguous encounters"
 		)
 	var rule_ids: Array = []
-	for row in rows("battle_rules"):
+	for row in _source_rows("battle_rules"):
 		rule_ids.append(row.id)
 	_check(
 		_same_members(rule_ids, contract.rules.keys()),
@@ -314,7 +314,7 @@ func validate(candidate: Dictionary) -> bool:
 			"must exceed minimum"
 		)
 	var status_ids: Array = []
-	for row in rows("battle_rules", "statuses"):
+	for row in _source_rows("battle_rules", "statuses"):
 		status_ids.append(row.id)
 	_check(
 		_same_members(status_ids, contract.statuses),
@@ -322,12 +322,12 @@ func validate(candidate: Dictionary) -> bool:
 		"id",
 		"missing or unknown statuses"
 	)
-	for row in rows("battle_rules", "statuses"):
+	for row in _source_rows("battle_rules", "statuses"):
 		_check(row.id in contract.statuses, row, "id", "unsupported status")
 		_check(row.get("dispellable") is bool, row, "dispellable", "must be boolean")
 		_numeric(row, "per_stack", 1, true)
 		_numeric(row, "decay", 1, true)
-	for row in rows("texts_zh_cn"):
+	for row in _source_rows("texts_zh_cn"):
 		_check(
 			row.get("text") is String and not str(row.get("text", "")).is_empty(),
 			row,
@@ -441,7 +441,7 @@ func _validate_effect(row: Dictionary, book: String, card_target: String = "") -
 func _validate_phase_two() -> void:
 	var groups := {"encounters": {}, "relics": {}}
 	for book in groups:
-		for effect in rows(book, "effects"):
+		for effect in _source_rows(book, "effects"):
 			_validate_effect(effect, book)
 			_check(effect.group_id != "", effect, "group_id", "empty effect group")
 			groups[book][effect.group_id] = true
@@ -449,12 +449,12 @@ func _validate_phase_two() -> void:
 			var list := _ordered_effects(book, group)
 			for i in range(list.size()):
 				_check(list[i].order == i + 1, list[i], "order", "non-contiguous group")
-	for enemy in rows("encounters", "enemies"):
+	for enemy in _source_rows("encounters", "enemies"):
 		_check(enemy.kind in ["normal", "elite", "boss"], enemy, "kind", "unknown enemy kind")
 		_numeric(enemy, "enrage_turn", 0, true)
 		_numeric(enemy, "enrage_mult", 1)
 	var used_encounter_groups: Dictionary = {}
-	for intent in rows("encounters", "intents"):
+	for intent in _source_rows("encounters", "intents"):
 		_check(
 			intent.target_rule in ["threat", "lowest_hp_ratio"],
 			intent,
@@ -476,7 +476,7 @@ func _validate_phase_two() -> void:
 			)
 			used_encounter_groups[intent.effect_group] = true
 	var thresholds: Dictionary = {}
-	for phase in rows("encounters", "phases"):
+	for phase in _source_rows("encounters", "phases"):
 		var enemy := definition("encounters", phase.enemy_id, "enemies")
 		_check(enemy.get("kind") == "boss", phase, "enemy_id", "phase must belong to a boss")
 		_check(
@@ -510,7 +510,7 @@ func _validate_phase_two() -> void:
 		"encounters.effects",
 		"unreferenced encounter effect group"
 	)
-	for row in rows("encounters"):
+	for row in _source_rows("encounters"):
 		_check(row.kind in ["normal", "elite", "boss"], row, "kind", "unknown encounter kind")
 		_numeric(row, "min_depth", 1, true)
 		_numeric(row, "max_depth", 1, true)
@@ -527,7 +527,7 @@ func _validate_phase_two() -> void:
 			)
 		_check((row.kind == "boss") == contains_boss, row, "kind", "boss classification mismatch")
 	var used_relic_groups: Dictionary = {}
-	for relic in rows("relics"):
+	for relic in _source_rows("relics"):
 		_check(relic.pool in ["normal", "boss"], relic, "pool", "unknown relic pool")
 		_check(
 			(
@@ -567,7 +567,7 @@ func _validate_phase_two() -> void:
 			"description_key",
 			"relic template mismatch"
 		)
-	for trigger in rows("relics", "triggers"):
+	for trigger in _source_rows("relics", "triggers"):
 		_check(
 			not definition("relics", trigger.relic_id).is_empty(),
 			trigger,
@@ -649,7 +649,7 @@ func _validate_phase_two() -> void:
 		"relics.effects",
 		"unreferenced relic effect group"
 	)
-	for event in rows("events"):
+	for event in _source_rows("events"):
 		_numeric(event, "weight", 1)
 		var choices := event_options(event.id)
 		var has_leave := false
@@ -657,7 +657,7 @@ func _validate_phase_two() -> void:
 			_check(choices[i].order == i + 1, choices[i], "order", "non-contiguous choices")
 			has_leave = has_leave or choices[i].leave
 		_check(has_leave, event, "options", "missing free leave option")
-	for option in rows("events", "options"):
+	for option in _source_rows("events", "options"):
 		_check(
 			not definition("events", option.event_id).is_empty(),
 			option,
@@ -705,7 +705,7 @@ func _validate_phase_two() -> void:
 					"leave",
 					"leave may not grant effects"
 				)
-	for outcome in rows("events", "outcomes"):
+	for outcome in _source_rows("events", "outcomes"):
 		_check(
 			not definition("events", outcome.option_id, "options").is_empty(),
 			outcome,
@@ -736,7 +736,7 @@ func _validate_phase_two() -> void:
 		"remove": ["selected_card"],
 		"grant_relic": ["none"]
 	}
-	for effect in rows("events", "effects"):
+	for effect in _source_rows("events", "effects"):
 		var outcome := definition("events", effect.outcome_id, "outcomes")
 		_check(not outcome.is_empty(), effect, "outcome_id", "missing outcome")
 		if outcome.is_empty():
@@ -781,7 +781,7 @@ func _validate_phase_two() -> void:
 		else:
 			_check(effect.content_pool == "", effect, "content_pool", "non-relic effect has a pool")
 	var economy_ids: Array = []
-	for row in rows("economy"):
+	for row in _source_rows("economy"):
 		economy_ids.append(row.id)
 	_check(
 		_same_members(economy_ids, contract.economy_rules.keys()),
@@ -800,7 +800,7 @@ func _validate_phase_two() -> void:
 		)
 	for sheet in ["card_prices", "relic_prices"]:
 		var rarities: Array = []
-		for row in rows("economy", sheet):
+		for row in _source_rows("economy", sheet):
 			rarities.append(row.rarity)
 			_numeric(row, "price", 0, true)
 		_check(
@@ -810,7 +810,7 @@ func _validate_phase_two() -> void:
 			"missing or repeated price rarity"
 		)
 	var weight_keys: Dictionary = {}
-	for weight in rows("economy", "weights"):
+	for weight in _source_rows("economy", "weights"):
 		var key := str(weight.kind) + ":" + str(weight.source) + ":" + str(weight.rarity)
 		_check(not weight_keys.has(key), weight, "id", "duplicate rarity weight")
 		weight_keys[key] = true
@@ -829,17 +829,17 @@ func _validate_phase_two() -> void:
 	for kind in ["card", "relic"]:
 		for source in ["battle", "elite", "boss", "shop"]:
 			var total := 0.0
-			for weight in rows("economy", "weights"):
+			for weight in _source_rows("economy", "weights"):
 				if weight.kind == kind and weight.source == source:
 					total += float(weight.weight)
 			_check(total > 0, {}, "weights", "source weight total must be positive")
 	for pair in [["base_draw", "draw_count"], ["base_energy", "base_energy"]]:
 		var worst: float = rule(pair[1])
-		for effect in rows("relics", "effects"):
+		for effect in _source_rows("relics", "effects"):
 			if effect.kind == pair[0]:
 				worst += minf(0, float(effect.amount))
 		_check(worst >= 0, {}, pair[0], "combined negative modifiers invalidate base resource")
-	for map in rows("maps"):
+	for map in _source_rows("maps"):
 		_numeric(map, "node_count", 10, true)
 		_check(map.node_count == 10, map, "node_count", "chapter requires ten nodes")
 		_numeric(map, "width", 2, true)
@@ -855,7 +855,7 @@ func _validate_phase_two() -> void:
 			"boss_encounter_id",
 			"end must be a boss"
 		)
-	for rule_row in rows("maps", "node_rules"):
+	for rule_row in _source_rows("maps", "node_rules"):
 		_check(
 			(
 				not definition("maps", rule_row.map_id).is_empty()
@@ -874,7 +874,7 @@ func _validate_phase_two() -> void:
 			"max_depth",
 			"invalid map rule depth"
 		)
-	for entry in rows("maps", "pools"):
+	for entry in _source_rows("maps", "pools"):
 		_check(
 			(
 				not definition("maps", entry.map_id).is_empty()
@@ -902,7 +902,7 @@ func _validate_phase_two() -> void:
 				"content_id",
 				"encounter category mismatch"
 			)
-	for map in rows("maps"):
+	for map in _source_rows("maps"):
 		var pool := map_pool(map.id)
 		var rules := map_rules(map.id)
 		var seen: Dictionary = {}
@@ -932,7 +932,7 @@ func _validate_phase_two() -> void:
 						available = true
 				_check(available, rule_row, "pools", "no content for depth %d" % depth)
 			_check(safe, map, "node_rules", "no non-elite candidate for depth %d" % depth)
-	for difficulty in rows("difficulty"):
+	for difficulty in _source_rows("difficulty"):
 		_check(
 			not difficulty.enabled or difficulty.id == "difficulty_1",
 			difficulty,
@@ -946,7 +946,7 @@ func _validate_phase_two() -> void:
 		"difficulty one must be enabled"
 	)
 	_check(
-		rows("difficulty", "modifiers").is_empty(),
+		_source_rows("difficulty", "modifiers").is_empty(),
 		{},
 		"difficulty.modifiers",
 		"other difficulty mechanics are not defined"
@@ -1057,11 +1057,16 @@ func _placeholders(template: String, row: Dictionary) -> Array:
 
 
 func rows(book: String, sheet: String = "main") -> Array:
+	return _source_rows(book, sheet).duplicate(true)
+
+
+# Internal readers borrow these rows; only public query results are copied.
+func _source_rows(book: String, sheet: String = "main") -> Array:
 	return books.get(book, {}).get("sheets", {}).get(sheet, [])
 
 
 func definition(book: String, id: String, sheet: String = "main") -> Dictionary:
-	for row in rows(book, sheet):
+	for row in _source_rows(book, sheet):
 		if row.id == id:
 			return row.duplicate(true)
 	return {}
@@ -1077,7 +1082,7 @@ func economy(id: String) -> float:
 
 func price_for(kind: String, item_id: String) -> int:
 	var item := definition("cards" if kind == "card" else "relics", item_id)
-	for price in rows("economy", "card_prices" if kind == "card" else "relic_prices"):
+	for price in _source_rows("economy", "card_prices" if kind == "card" else "relic_prices"):
 		if price.rarity == item.get("rarity", ""):
 			return int(price.price)
 	return 0
@@ -1086,7 +1091,7 @@ func price_for(kind: String, item_id: String) -> int:
 func weight_for(kind: String, item_id: String, source: String) -> float:
 	var item := definition("cards" if kind == "card" else "relics", item_id)
 	var origin := "battle" if source == "reward" else source
-	for weight in rows("economy", "weights"):
+	for weight in _source_rows("economy", "weights"):
 		if (
 			weight.kind == kind
 			and weight.source == origin
@@ -1097,7 +1102,7 @@ func weight_for(kind: String, item_id: String, source: String) -> float:
 
 
 func chapter_definition() -> Dictionary:
-	var chapters := rows("maps")
+	var chapters := _source_rows("maps")
 	return chapters[0].duplicate(true) if not chapters.is_empty() else {}
 
 
@@ -1151,7 +1156,7 @@ func relic_text(id: String) -> String:
 
 func relic_triggers(relic_ids: Array, event: String = "") -> Array:
 	var result: Array = []
-	for trigger in rows("relics", "triggers"):
+	for trigger in _source_rows("relics", "triggers"):
 		if trigger.relic_id in relic_ids and (event == "" or trigger.event == event):
 			result.append(trigger.duplicate(true))
 	result.sort_custom(
@@ -1190,7 +1195,7 @@ func enemy_phases(enemy_id: String) -> Array:
 
 func _matching_rows(book: String, sheet: String, field: String, value: String) -> Array:
 	var result: Array = []
-	for row in rows(book, sheet):
+	for row in _source_rows(book, sheet):
 		if row.get(field) == value:
 			result.append(row.duplicate(true))
 	return result
@@ -1215,7 +1220,7 @@ func text(key: String, values: Dictionary = {}) -> String:
 
 func card_effects(id: String, upgraded: bool) -> Array:
 	var result: Array = []
-	for effect in rows("cards", "effects"):
+	for effect in _source_rows("cards", "effects"):
 		if effect.get("card_id") == id and effect.get("upgraded") == upgraded:
 			result.append(effect.duplicate(true))
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.order < b.order)
@@ -1289,7 +1294,7 @@ func effect_text(effect: Dictionary) -> String:
 
 func enemy_intents(id: String, pool_id: String = "") -> Array:
 	var result: Array = []
-	for row in rows("encounters", "intents"):
+	for row in _source_rows("encounters", "intents"):
 		if row.enemy_id == id and row.get("pool_id", "") == pool_id:
 			result.append(row.duplicate(true))
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.order < b.order)
