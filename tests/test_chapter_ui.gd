@@ -9,6 +9,21 @@ var app: Control
 var data: RefCounted
 
 
+class FailingStore:
+	extends "res://scripts/core/save_manager.gd"
+	var rejected_writes: int = 0
+
+	func write_slot(
+		_slot: String,
+		_payload: Dictionary,
+		_terminal: bool = false,
+		_validator: Callable = Callable()
+	) -> bool:
+		rejected_writes += 1
+		last_error = "save_write_failed"
+		return false
+
+
 func run_tests() -> void:
 	root.size = Vector2i(1440, 900)
 	root.gui_embed_subwindows = true
@@ -113,6 +128,23 @@ func _test_continue_and_confirmations() -> void:
 	)
 	app.run.persistence_error = ""
 	app._on_run_changed()
+	# Failed terminal writes must block Quit even when a menu action caused them.
+	var original_store: RefCounted = app.run.saves
+	var failing := FailingStore.new()
+	failing.directory = original_store.directory
+	app.run.saves = failing
+	expect(not app.run._checkpoint())
+	app._showing_menu = true
+	app._on_quit()
+	await process_frame
+	expect(
+		failing.rejected_writes == 2 and app.run.phase == Types.RunPhase.ABANDONED,
+		"Quit retries failed terminal persistence and keeps the unsaved result open"
+	)
+	app.run.saves = original_store
+	expect(app.run.retry_save())
+	app._showing_menu = false
+	app._on_run_changed()
 
 
 func _test_chapter_overview() -> void:
@@ -145,7 +177,7 @@ func _test_chapter_overview() -> void:
 		calls.is_empty() and app.run.action_token == token and app.run.battle.snapshot() == before,
 		"Even synthetic clicks on overview nodes cannot change the active battle"
 	)
-	# Include the supported minimum: unlike 1280 and 1440, it must shrink the dialog.
+	# Logical-viewport robustness is separate from the physical window size below.
 	for logical_size in [Vector2i(1280, 800), Vector2i(1200, 760), Vector2i(1440, 900)]:
 		await _set_logical_size(logical_size)
 		_check_chapter_map_bounds(
@@ -158,6 +190,7 @@ func _test_chapter_overview() -> void:
 	await process_frame
 	await process_frame
 	_check_chapter_map_bounds(Vector2i(1180, 740))
+	await _check_physical_window_scaling(dialog)
 	dialog.get_ok_button().pressed.emit()
 	expect(app.run.battle.snapshot() == before and app.run.action_token == token)
 
@@ -636,6 +669,11 @@ func _check_popup_sizes(dialog: Window, expected_size: Vector2i, paths: Array) -
 		)
 		var bounds: Rect2 = root.get_visible_rect().grow(1)
 		expect(bounds.encloses(Rect2(Vector2(dialog.position), Vector2(dialog.size))))
+		var center: Vector2 = Vector2(dialog.position) + Vector2(dialog.size) * 0.5
+		expect(
+			center.distance_to(root.get_visible_rect().get_center()) <= 1.0,
+			"Inspect and selection popups stay centred after logical viewport changes"
+		)
 		var inner: Rect2 = dialog.get_visible_rect().grow(1)
 		for path in paths:
 			var control: Control = dialog.get_node(path)
@@ -647,6 +685,35 @@ func _check_popup_sizes(dialog: Window, expected_size: Vector2i, paths: Array) -
 				),
 				"Popup list, preview or text remains visible: %s/%s" % [dialog.name, path]
 			)
+	await _check_physical_window_scaling(dialog)
+
+
+func _check_physical_window_scaling(dialog: Window) -> void:
+	# Keep the project base viewport fixed and change only the host window size.
+	# This checks scaled geometry; font legibility still requires an actual window.
+	await _set_logical_size(Vector2i(1440, 900))
+	expect(root.content_scale_mode == Window.CONTENT_SCALE_MODE_CANVAS_ITEMS)
+	for physical_size in [Vector2i(1200, 760), Vector2i(1280, 800), Vector2i(1440, 900)]:
+		root.size = physical_size
+		await process_frame
+		await process_frame
+		expect(root.size == physical_size, "The host window reaches the requested physical size")
+		expect(
+			root.get_visible_rect().size == Vector2(1440, 900),
+			"Physical window resizing preserves the configured logical viewport"
+		)
+		var stretch: Transform2D = root.get_stretch_transform()
+		var scaled_view: Rect2 = stretch * root.get_visible_rect()
+		var popup_rect := Rect2(Vector2(dialog.position), Vector2(dialog.size))
+		var scaled_popup: Rect2 = stretch * popup_rect
+		expect(
+			Rect2(Vector2.ZERO, Vector2(physical_size)).grow(1).encloses(scaled_popup),
+			"The scaled popup fits the physical host window, including its minimum size"
+		)
+		expect(
+			scaled_popup.get_center().distance_to(scaled_view.get_center()) <= 1.0,
+			"Physical resizing preserves the popup centre in the stretched content"
+		)
 
 
 func _apply_node_margins(control: Control) -> void:

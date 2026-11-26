@@ -309,12 +309,19 @@ func _popup_sized(dialog: Window, preferred_size: Vector2i) -> void:
 	var window_size := Vector2i(
 		mini(preferred_size.x, available.x), mini(preferred_size.y, available.y)
 	)
-	# AcceptDialog resets to its content minimum during popup. Apply the scene's
-	# desired size afterward and preserve the popup's parent/screen centre.
-	dialog.popup_centered()
-	var center: Vector2i = dialog.position + dialog.size / 2
+	# AcceptDialog may reset its size during popup. Center using the final size,
+	# then again after deferred layout, without reading a transient popup position.
+	if not dialog.visible:
+		dialog.popup_centered()
 	dialog.size = window_size
-	dialog.position = center - dialog.size / 2
+	_center_popup(dialog)
+	_center_popup.call_deferred(dialog)
+
+
+func _center_popup(dialog: Window) -> void:
+	if dialog.visible:
+		# Godot handles embedder coordinates and native screen coordinates separately.
+		dialog.move_to_center()
 
 
 func _build_text(deck: Array, relics: Array) -> String:

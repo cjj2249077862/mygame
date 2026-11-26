@@ -53,6 +53,7 @@ func run_tests() -> void:
 	data = Data.new()
 	if not expect(data.load_directory(), str(data.errors)):
 		return
+	_test_saved_value_comparison()
 	_test_json_checkpoint_types()
 	_test_bomb_checkpoint_round_trip()
 	_test_shop_and_camp()
@@ -110,7 +111,7 @@ func _test_json_checkpoint_types() -> void:
 		"Loading an active JSON run cannot reconcile it as a terminal result"
 	)
 	expect(startup.meta.adventures is int and startup.meta.adventures == 1)
-	var before := run.battle.snapshot()
+	var before: Dictionary = run.battle.snapshot()
 	run = _reload(run)
 	expect(run.battle.snapshot() == before, "Battle intent and unit types stay stable through JSON")
 	# Preserve floating contribution values at the non-battle and metadata boundaries too.
@@ -126,8 +127,9 @@ func _test_json_checkpoint_types() -> void:
 	expect(run.abandon_run() == "")
 	var expected_meta: Dictionary = run.meta.duplicate(true)
 	startup = Run.new(data, run.saves.directory)
-	expect(
-		startup.meta == expected_meta,
+	_expect_saved_equal(
+		startup.meta,
+		expected_meta,
 		"Metadata keeps integer counters and floating unit/elapsed fields"
 	)
 	expect(startup.meta.abandoned is int and startup.meta.abandoned == 1)
@@ -764,7 +766,9 @@ func _test_terminal_meta_repair() -> void:
 	)
 	expect(repaired.meta.finished_ids.count(terminal_payload.run_id) == 1)
 	var repaired_meta: Dictionary = repaired.meta.duplicate(true)
-	expect(Run.new(data, directory).meta == repaired_meta, "Terminal repair is idempotent")
+	_expect_saved_equal(
+		Run.new(data, directory).meta, repaired_meta, "Terminal repair is idempotent"
+	)
 	expect(not repaired.has_saved_run())
 	directory = _directory("terminal_retry")
 	store = Store.new(directory)
@@ -787,8 +791,9 @@ func _test_terminal_meta_repair() -> void:
 		FileAccess.get_file_as_string(directory.path_join("run.json")) == terminal_file,
 		"Metadata retry cannot overwrite the terminal run with an idle snapshot"
 	)
-	expect(
-		Run.new(data, directory).meta == repaired_meta,
+	_expect_saved_equal(
+		Run.new(data, directory).meta,
+		repaired_meta,
 		"A failed then retried repair records the same result exactly once"
 	)
 
@@ -973,6 +978,74 @@ func _resources(run: RefCounted) -> Dictionary:
 	}
 
 
+func _test_saved_value_comparison() -> void:
+	var original: Dictionary = {
+		"records": [{"elapsed_seconds": 0.31999999999999995, "damage_multiplier": 1.0}],
+		"adventures": 1
+	}
+	var decoded: Dictionary = original.duplicate(true)
+	decoded.records[0].elapsed_seconds = 0.32
+	expect(_saved_difference(decoded, original) == "", "JSON time rounding preserves elapsed time")
+	decoded.records[0].elapsed_seconds = 0.321
+	expect(
+		_saved_difference(decoded, original).contains("elapsed_seconds"),
+		"Comparison must still reject a lost millisecond and report its field"
+	)
+	decoded = original.duplicate(true)
+	decoded.adventures = 1.0
+	expect(_saved_difference(decoded, original) != "", "Integer counter types remain exact")
+	decoded = original.duplicate(true)
+	decoded.adventures = 2
+	expect(_saved_difference(decoded, original) != "", "Counter increments remain detectable")
+	decoded = original.duplicate(true)
+	decoded.records[0].damage_multiplier = 1.0000000001
+	expect(_saved_difference(decoded, original) != "", "Only elapsed time gets a tolerance")
+
+
+func _expect_saved_equal(actual: Variant, expected: Variant, message: String) -> void:
+	var difference: String = _saved_difference(actual, expected)
+	expect(difference == "", message + (": " + difference if difference != "" else ""))
+
+
+func _saved_difference(actual: Variant, expected: Variant, path: String = "saved") -> String:
+	if typeof(actual) != typeof(expected):
+		return "%s type %s != %s" % [path, typeof(actual), typeof(expected)]
+	if actual is Dictionary:
+		if actual.size() != expected.size():
+			return path + " dictionary size differs"
+		for key in expected:
+			var child_path: String = path + "/" + str(key)
+			if not actual.has(key):
+				return child_path + " is missing"
+			# JSON may round the last binary digit of a recorded duration. Keep its
+			# float type and sub-millisecond value, while all gameplay fields stay exact.
+			if key == "elapsed_seconds":
+				if (
+					actual[key] is float
+					and expected[key] is float
+					and is_finite(actual[key])
+					and is_finite(expected[key])
+					and absf(actual[key] - expected[key]) <= 0.000000001
+				):
+					continue
+				return "%s differs: %s != %s" % [child_path, actual[key], expected[key]]
+			var difference: String = _saved_difference(actual[key], expected[key], child_path)
+			if difference != "":
+				return difference
+	elif actual is Array:
+		if actual.size() != expected.size():
+			return path + " array size differs"
+		for index in range(expected.size()):
+			var difference: String = _saved_difference(
+				actual[index], expected[index], "%s/%d" % [path, index]
+			)
+			if difference != "":
+				return difference
+	elif actual != expected:
+		return "%s differs: %s != %s" % [path, actual, expected]
+	return ""
+
+
 func _reload(run: RefCounted) -> RefCounted:
 	var before := _stable(run, true)
 	var meta_before: Dictionary = run.meta.duplicate(true)
@@ -984,11 +1057,14 @@ func _reload(run: RefCounted) -> RefCounted:
 	if expect(
 		restored.continue_run(), "Reload phase %d: %s" % [run.phase, restored.persistence_error]
 	):
-		expect(
-			_stable(restored, true) == before,
+		_expect_saved_equal(
+			_stable(restored, true),
+			before,
 			"Reload preserves all persistent fields except the fresh action token"
 		)
-		expect(restored.meta == meta_before, "Reload cannot increment statistics twice")
+		_expect_saved_equal(
+			restored.meta, meta_before, "Reload preserves statistics and record values"
+		)
 		expect(restored.action_token > run.action_token, "Reload invalidates pre-load UI tokens")
 		restored_phases.append(restored.phase)
 		return restored
@@ -1003,7 +1079,9 @@ func _fork(run: RefCounted, label: String) -> RefCounted:
 	expect(store.write_slot("meta", run.meta))
 	var forked := Run.new(data, directory)
 	expect(forked.continue_run(), "Load isolated event branch " + label)
-	expect(_stable(forked, true) == _stable(run, true), "Fork keeps event results and random state")
+	_expect_saved_equal(
+		_stable(forked, true), _stable(run, true), "Fork keeps event results and random state"
+	)
 	return forked
 
 

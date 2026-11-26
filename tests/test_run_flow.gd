@@ -9,6 +9,7 @@ func run_tests() -> void:
 	var data := Data.new()
 	if not expect(data.load_directory(), str(data.errors)):
 		return
+	_test_idle_load_error_exit(data)
 	var run := Run.new(data)
 	expect(not run.start(42, ["warden", "warden", "mender"]))
 	expect(run.start(42))
@@ -92,6 +93,46 @@ func run_tests() -> void:
 	expect(run.start(45))
 	expect(run.deck.size() == 15 and run.gold == 0 and run.stage_index == 0)
 	_test_character_extension(data)
+
+
+func _test_idle_load_error_exit(data: RefCounted) -> void:
+	var directory := "user://phase2_meta_exit_%d" % Time.get_ticks_usec()
+	var original := Run.new(data, directory)
+	if not expect(original.start(420) and original.return_to_menu()):
+		return
+	var meta_path: String = directory.path_join("meta.json")
+	var run_path: String = directory.path_join("run.json")
+	var valid_meta: String = FileAccess.get_file_as_string(meta_path)
+	var active_run: String = FileAccess.get_file_as_string(run_path)
+	var active_backup: String = FileAccess.get_file_as_string(run_path + ".bak")
+	for path in [meta_path, meta_path + ".bak"]:
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		if not expect(file != null):
+			return
+		file.store_string("unreadable meta fixture")
+		file.close()
+	var loaded := Run.new(data, directory)
+	expect(loaded.phase == Types.RunPhase.IDLE and loaded.persistence_error != "")
+	var before: Dictionary = loaded.snapshot()
+	for attempt in range(2):
+		expect(loaded.return_to_menu(), "Idle read failures do not trap Quit or window close")
+		expect(loaded.snapshot() == before and loaded.persistence_error != "")
+		expect(not loaded.start(421) and loaded.abandon_run() == "error.save")
+		expect(not loaded.retry_save(), "Retry still reports unreadable permanent records")
+		expect(FileAccess.get_file_as_string(meta_path) == "unreadable meta fixture")
+		expect(FileAccess.get_file_as_string(meta_path + ".bak") == "unreadable meta fixture")
+		expect(FileAccess.get_file_as_string(run_path) == active_run)
+		expect(FileAccess.get_file_as_string(run_path + ".bak") == active_backup)
+	# Restoring a valid copy externally must still work without replacing the run.
+	var repaired := FileAccess.open(meta_path, FileAccess.WRITE)
+	if not expect(repaired != null):
+		return
+	repaired.store_string(valid_meta)
+	repaired.close()
+	expect(loaded.retry_save() and loaded.persistence_error == "")
+	expect(loaded.meta == original.meta and loaded.has_saved_run())
+	expect(loaded.continue_run() and loaded.run_id == original.run_id)
+	expect(loaded.meta.adventures == 1 and loaded.meta.abandoned == 0)
 
 
 func _win(run: RefCounted) -> void:

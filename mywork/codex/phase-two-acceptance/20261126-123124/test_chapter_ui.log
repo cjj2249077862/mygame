@@ -1,0 +1,75 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+ERROR: Resizing the popup keeps it centred
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:181)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:124)
+ERROR: All ten map depths fit the resized canvas and popup
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:199)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:124)
+ERROR: Resizing the popup keeps it centred
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:181)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: All ten map depths fit the resized canvas and popup
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:199)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: Resizing the popup keeps it centred
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:181)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: All ten map depths fit the resized canvas and popup
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:199)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: Resizing the popup keeps it centred
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:181)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: All ten map depths fit the resized canvas and popup
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:199)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:151)
+       [3] _set_logical_size (res://tests/test_chapter_ui.gd:666)
+ERROR: The chapter overview stays inside the logical viewport
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:176)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:160)
+ERROR: Resizing the popup keeps it centred
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:181)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:160)
+ERROR: All ten map depths fit the resized canvas and popup
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _check_chapter_map_bounds (res://tests/test_chapter_ui.gd:199)
+       [2] _test_chapter_overview (res://tests/test_chapter_ui.gd:160)
+RAIDDECK_TEST_RESULT {"assertions":414,"failures":["Resizing the popup keeps it centred","All ten map depths fit the resized canvas and popup","Resizing the popup keeps it centred","All ten map depths fit the resized canvas and popup","Resizing the popup keeps it centred","All ten map depths fit the resized canvas and popup","Resizing the popup keeps it centred","All ten map depths fit the resized canvas and popup","The chapter overview stays inside the logical viewport","Resizing the popup keeps it centred","All ten map depths fit the resized canvas and popup"],"passed":false,"suite":"test_chapter_ui"}

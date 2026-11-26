@@ -230,10 +230,16 @@ func _fit_picker() -> void:
 	var desired := Vector2i(
 		mini(picker_preferred_size.x, available.x), mini(picker_preferred_size.y, available.y)
 	)
-	$Picker.popup_centered()
-	var center: Vector2i = $Picker.position + $Picker.size / 2
+	if not $Picker.visible:
+		$Picker.popup_centered()
 	$Picker.size = desired
-	$Picker.position = center - $Picker.size / 2
+	_center_picker()
+	_center_picker.call_deferred()
+
+
+func _center_picker() -> void:
+	if $Picker.visible:
+		$Picker.move_to_center()
 
 
 func _on_event_target(

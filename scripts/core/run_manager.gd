@@ -404,6 +404,11 @@ func continue_run() -> bool:
 
 
 func return_to_menu() -> bool:
+	# An idle load failure has no unsaved adventure in memory. Allow closing the
+	# application while retaining the error and both files for a later retry.
+	# Failed terminal metadata reconciliation is also recoverable from disk.
+	if phase == Types.RunPhase.IDLE:
+		return true
 	if (phase in ACTIVE_PHASES or persistence_error != "") and not _checkpoint():
 		changed.emit()
 		return false

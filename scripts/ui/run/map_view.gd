@@ -76,9 +76,12 @@ func _place_nodes() -> void:
 		depth = maxi(depth, int(node.depth))
 	for node in _nodes:
 		var button: Button = _buttons[node.id]
+		# Font and theme margins can exceed the configured minimum node size.
+		var extent: Vector2 = button.size.max(button.get_combined_minimum_size())
+		button.size = extent
 		button.position = Vector2(
-			(canvas.size.x - node_size.x) * (float(node.column) + 0.5) / columns,
-			(canvas.size.y - node_size.y) * float(int(node.depth) - 1) / maxi(1, depth - 1)
+			(canvas.size.x - extent.x) * (float(node.column) + 0.5) / columns,
+			(canvas.size.y - extent.y) * float(int(node.depth) - 1) / maxi(1, depth - 1)
 		)
 	queue_redraw()
 
