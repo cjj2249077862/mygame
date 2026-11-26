@@ -312,7 +312,8 @@ func _test_multiple_casters() -> void:
 			}
 		)
 	expect(app.run.abandon_run() == "")
-	expect(app.run.start(261126, ["warden", "second_tank_fixture", "mender"]))
+	var lineup: Array[String] = ["warden", "second_tank_fixture", "mender"]
+	expect(app.run.start(261126, lineup))
 	await _settle()
 	var second: Dictionary = view.engine.find_unit("second_tank_fixture")
 	_hand("guard")
@@ -420,10 +421,15 @@ func _test_play_lock_and_restart() -> void:
 	expect(view.engine.find_unit("enemy_0").hp < target_hp, "One target click resolves one card")
 	await _restart()
 	await _restart()
-	expect(
-		view.engine.settled.get_connections().size() == 1,
-		"Restart connects exactly one battle view"
-	)
+	var presentation_connections := 0
+	var save_connections := 0
+	for connection in view.engine.settled.get_connections():
+		if connection.callable == Callable(view, "_on_settled"):
+			presentation_connections += 1
+		if connection.callable == Callable(app.run, "_on_battle_settled"):
+			save_connections += 1
+	expect(presentation_connections == 1, "Restart connects exactly one battle presentation")
+	expect(save_connections == 1, "Restart retains the separate automatic-save connection")
 	_hand("guard")
 	_select_card()
 	var before: Dictionary = view.engine.snapshot()

@@ -100,6 +100,9 @@ func _test_chapter_overview() -> void:
 	var dialog = app.get_node("ChapterMap")
 	var overview = app.get_node("ChapterMap/Map")
 	expect(dialog.visible, "A new adventure immediately reveals the complete map and Boss")
+	await process_frame
+	await process_frame
+	_check_chapter_map_bounds(Vector2i(1180, 740))
 	var boss: Dictionary = app.run.view_snapshot().boss
 	var text: String = overview.get_node("Margin/Content/Boss").text
 	expect(
@@ -123,22 +126,64 @@ func _test_chapter_overview() -> void:
 		calls.is_empty() and app.run.action_token == token and app.run.battle.snapshot() == before,
 		"Even synthetic clicks on overview nodes cannot change the active battle"
 	)
-	for logical_size in [Vector2i(1280, 800), Vector2i(1440, 900)]:
+	# Include the supported minimum: unlike 1280 and 1440, it must shrink the dialog.
+	for logical_size in [Vector2i(1280, 800), Vector2i(1200, 760), Vector2i(1440, 900)]:
 		await _set_logical_size(logical_size)
-		var bounds: Rect2 = root.get_visible_rect().grow(1)
-		expect(
-			bounds.encloses(Rect2(Vector2(dialog.position), Vector2(dialog.size))),
-			"The chapter overview window fits the tested logical viewport"
+		_check_chapter_map_bounds(
+			Vector2i(mini(1180, logical_size.x - 40), mini(740, logical_size.y - 40))
 		)
-		var inner: Rect2 = dialog.get_visible_rect().grow(1)
-		for button in overview._buttons.values():
-			expect(inner.encloses(button.get_global_rect()), "All ten map depths fit the overview")
 	dialog.get_ok_button().pressed.emit()
 	expect(not dialog.visible)
 	app.get_node("Navigation/Actions/Map").pressed.emit()
 	expect(dialog.visible, "Chapter overview can be reopened during the active battle")
+	await process_frame
+	await process_frame
+	_check_chapter_map_bounds(Vector2i(1180, 740))
 	dialog.get_ok_button().pressed.emit()
 	expect(app.run.battle.snapshot() == before and app.run.action_token == token)
+
+
+func _check_chapter_map_bounds(expected_size: Vector2i) -> void:
+	var dialog = app.get_node("ChapterMap")
+	var overview = app.get_node("ChapterMap/Map")
+	expect(
+		dialog.visible and dialog.size == expected_size,
+		(
+			"Popup keeps its requested size after opening/resizing: expected %s, actual %s"
+			% [expected_size, dialog.size]
+		)
+	)
+	var bounds: Rect2 = root.get_visible_rect().grow(1)
+	expect(
+		bounds.encloses(Rect2(Vector2(dialog.position), Vector2(dialog.size))),
+		"The chapter overview stays inside the logical viewport"
+	)
+	var center: Vector2 = Vector2(dialog.position) + Vector2(dialog.size) * 0.5
+	expect(
+		center.distance_to(root.get_visible_rect().get_center()) <= 1.0,
+		"Resizing the popup keeps it centred"
+	)
+	var inner: Rect2 = dialog.get_visible_rect().grow(1)
+	expect(inner.encloses(overview.get_global_rect()), "The map content fits the popup")
+	for path in [
+		"Margin/Content/Title",
+		"Margin/Content/Hint",
+		"Margin/Content/Boss",
+		"Margin/Content/Canvas"
+	]:
+		expect(
+			inner.encloses(overview.get_node(path).get_global_rect()),
+			"Map content does not overflow after popup resize: " + path
+		)
+	var canvas_bounds: Rect2 = overview.canvas.get_global_rect().grow(1)
+	for button in overview._buttons.values():
+		expect(
+			(
+				canvas_bounds.encloses(button.get_global_rect())
+				and inner.encloses(button.get_global_rect())
+			),
+			"All ten map depths fit the resized canvas and popup"
+		)
 
 
 func _test_map() -> void:

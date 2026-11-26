@@ -19,6 +19,8 @@ func has_slot(slot: String) -> bool:
 
 
 func read_slot(slot: String, validator: Callable = Callable()) -> Dictionary:
+	# This is a JSON transport layer: numbers arrive as floats. Schema owners
+	# validate integer-valued fields and restore their intended runtime types.
 	last_error = ""
 	recovered_from_backup = false
 	if slot not in SLOTS:

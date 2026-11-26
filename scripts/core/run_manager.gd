@@ -66,7 +66,7 @@ func _init(game_data: RefCounted, save_directory: String = "") -> void:
 			persistence_error = saves.last_error
 			_load_error_slot = "meta"
 		else:
-			meta = loaded
+			meta = _restore_meta(loaded)
 	if saves != null and _load_error_slot == "":
 		_reconcile_terminal_record()
 
@@ -330,15 +330,27 @@ func continue_run() -> bool:
 		changed.emit()
 		return false
 	recovery_notice = saves.recovered_from_backup
+	var restored_battle: RefCounted
+	var restored_rng := RandomNumberGenerator.new()
+	if int(saved.phase) == Types.RunPhase.BATTLE:
+		restored_rng.seed = int(saved.rng_seed)
+		restored_rng.state = int(saved.rng_state)
+		restored_battle = Battle.new(data)
+		if not restored_battle.restore(saved.battle, restored_rng, saved.relics):
+			error = "error.load"
+			persistence_error = "save_corrupt_or_incompatible"
+			_load_error_slot = "run"
+			if battle != null:
+				battle.external_block_reason = "error.save"
+			changed.emit()
+			return false
 	if _load_error_slot == "run":
 		_load_error_slot = ""
 	_disconnect_battle()
+	rng = restored_rng
 	_restore_fields(saved)
 	if phase == Types.RunPhase.BATTLE:
-		battle = Battle.new(data)
-		if not battle.restore(saved.battle, rng, relics):
-			error = "error.load"
-			return false
+		battle = restored_battle
 		_connect_battle()
 		battle_created.emit(battle)
 		battle.settled.emit([], battle.snapshot())
@@ -418,7 +430,7 @@ func retry_save() -> bool:
 			persistence_error = saves.last_error
 			changed.emit()
 			return false
-		meta = loaded
+		meta = _restore_meta(loaded)
 		_load_error_slot = ""
 		persistence_error = ""
 		_reconcile_terminal_record()
@@ -814,7 +826,7 @@ func _event_details(option: Dictionary) -> String:
 					)
 			else:
 				benefits.append(data.text("run.event." + effect.kind, {"amount": effect.amount}))
-		var description := (
+		var description: String = (
 			data.text("run.event.leave") if benefits.is_empty() else "；".join(benefits)
 		)
 		lines.append(
@@ -1025,7 +1037,7 @@ func _restore_fields(saved: Dictionary) -> void:
 	run_id = saved.run_id
 	gold = int(saved.gold)
 	deck = _restore_numbers(saved.deck)
-	party = _restore_numbers(saved.party)
+	party = Models.normalize_saved_units(saved.party)
 	relics = saved.relics.duplicate()
 	chapter_map = _restore_numbers(saved.map)
 	current_node_id = saved.current_node_id
@@ -1046,7 +1058,7 @@ func _restore_fields(saved: Dictionary) -> void:
 	rng.state = int(saved.rng_state)
 	_elapsed_base = float(saved.elapsed_seconds)
 	_resume_tick = Time.get_ticks_msec() if phase in ACTIVE_PHASES else 0
-	result = _restore_numbers(saved.result)
+	result = _restore_result(saved.result)
 	encounters = data.rows("encounters").duplicate(true)
 	persistence_error = ""
 	error = ""
@@ -1067,6 +1079,22 @@ func _restore_numbers(value: Variant) -> Variant:
 	if value is float and is_finite(value) and value == floorf(value):
 		return int(value)
 	return value
+
+
+func _restore_result(saved: Dictionary) -> Dictionary:
+	if saved.is_empty():
+		return {}
+	var restored: Dictionary = _restore_numbers(saved)
+	restored.party = Models.normalize_saved_units(saved.party)
+	restored.elapsed_seconds = float(saved.elapsed_seconds)
+	return restored
+
+
+func _restore_meta(saved: Dictionary) -> Dictionary:
+	var restored: Dictionary = _restore_numbers(saved)
+	for index in range(saved.records.size()):
+		restored.records[index] = _restore_result(saved.records[index])
+	return restored
 
 
 func _empty_meta() -> Dictionary:
@@ -1092,7 +1120,7 @@ func _reconcile_terminal_record() -> void:
 	var saved: Dictionary = saves.read_slot("run", _valid_snapshot)
 	if (
 		saved.is_empty()
-		or saved.phase in ACTIVE_PHASES
+		or int(saved.phase) in ACTIVE_PHASES
 		or saved.run_id in meta.finished_ids
 		or saved.run_id.begins_with("discarded_")
 	):
@@ -1185,6 +1213,9 @@ func _valid_meta(candidate: Dictionary) -> bool:
 		for id in candidate[key]:
 			if not id is String:
 				return false
+	for record in candidate.records:
+		if not record is Dictionary or not _valid_result(record):
+			return false
 	return true
 
 
@@ -1206,8 +1237,11 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 	for key in ["phase", "gold", "action_token", "next_copy_id", "remove_count", "reward_gold"]:
 		if not _integer(candidate.get(key)):
 			return false
+	# JSON decodes integer fields as floats; enum membership is type-sensitive.
+	# Validate first so fractional/string/bool phases cannot be coerced into a valid one.
+	var saved_phase := int(candidate.phase)
 	if (
-		candidate.phase
+		saved_phase
 		not in ACTIVE_PHASES + [Types.RunPhase.WON, Types.RunPhase.LOST, Types.RunPhase.ABANDONED]
 	):
 		return false
@@ -1224,7 +1258,9 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 	for key in ["reward_cards_done", "reward_relics_done"]:
 		if not candidate.get(key) is bool:
 			return false
-	if candidate.phase == Types.RunPhase.ABANDONED and candidate.map.is_empty():
+	if saved_phase in ACTIVE_PHASES and not candidate.result.is_empty():
+		return false
+	if saved_phase == Types.RunPhase.ABANDONED and candidate.map.is_empty():
 		return (
 			candidate.run_id.begins_with("discarded_")
 			and _valid_result(candidate.result)
@@ -1285,23 +1321,20 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 		if index > 0 and id not in nodes[candidate.visited[index - 1]].next:
 			return false
 	var current: Dictionary = nodes[candidate.current_node_id]
-	if candidate.phase == Types.RunPhase.MAP and current.next.is_empty():
+	if saved_phase == Types.RunPhase.MAP and current.next.is_empty():
 		return false
 	var node_phases := {
 		"camp": Types.RunPhase.CAMP, "shop": Types.RunPhase.SHOP, "event": Types.RunPhase.EVENT
 	}
-	if (
-		candidate.phase in node_phases.values()
-		and node_phases.get(current.kind, -1) != candidate.phase
-	):
+	if saved_phase in node_phases.values() and node_phases.get(current.kind, -1) != saved_phase:
 		return false
 	if (
-		candidate.phase in [Types.RunPhase.BATTLE, Types.RunPhase.REWARD]
+		saved_phase in [Types.RunPhase.BATTLE, Types.RunPhase.REWARD]
 		and current.kind not in ["battle", "elite", "boss"]
 	):
 		return false
 	if (
-		candidate.phase == Types.RunPhase.WON
+		saved_phase == Types.RunPhase.WON
 		and (current.kind != "boss" or candidate.visited.size() != int(chapter.node_count))
 	):
 		return false
@@ -1372,7 +1405,7 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 			):
 				return false
 			seen[id] = true
-	if candidate.phase == Types.RunPhase.REWARD:
+	if saved_phase == Types.RunPhase.REWARD:
 		if candidate.reward_cards_done and candidate.reward_relics_done:
 			return false
 		if not candidate.reward_cards_done and candidate.reward_cards.is_empty():
@@ -1390,7 +1423,7 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 				return false
 			if not candidate.reward_relics_done and relic_id in candidate.relics:
 				return false
-	if candidate.phase == Types.RunPhase.BATTLE:
+	if saved_phase == Types.RunPhase.BATTLE:
 		var engine := Battle.new(data)
 		if (
 			not engine.can_restore(candidate.battle)
@@ -1415,7 +1448,7 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 				battle_ids[int(copy.copy_id)] = true
 		if battle_ids.size() != copies.size():
 			return false
-	if candidate.phase == Types.RunPhase.SHOP:
+	if saved_phase == Types.RunPhase.SHOP:
 		if (
 			not _integer(candidate.shop.get("refresh_count"))
 			or not candidate.shop.get("offers") is Array
@@ -1437,7 +1470,7 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 			if definition.is_empty() or not _eligible(definition, candidate.party):
 				return false
 			offer_ids[offer.id] = true
-	if candidate.phase == Types.RunPhase.EVENT:
+	if saved_phase == Types.RunPhase.EVENT:
 		if (
 			candidate.event.get("event_id") != current.content_id
 			or not candidate.event.get("results") is Dictionary
@@ -1461,12 +1494,12 @@ func _valid_snapshot(candidate: Dictionary) -> bool:
 					or (reward != "" and data.definition("relics", reward).is_empty())
 				):
 					return false
-	if candidate.phase not in ACTIVE_PHASES:
+	if saved_phase not in ACTIVE_PHASES:
 		var expected: String = {
 			Types.RunPhase.WON: "chapter_complete",
 			Types.RunPhase.LOST: "lost",
 			Types.RunPhase.ABANDONED: "abandoned"
-		}[int(candidate.phase)]
+		}[saved_phase]
 		if not _valid_result(candidate.result) or candidate.result.get("outcome") != expected:
 			return false
 		if (

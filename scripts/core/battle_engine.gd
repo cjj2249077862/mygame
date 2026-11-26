@@ -16,23 +16,7 @@ const STATE_INTEGERS = [
 	"next_mark_index",
 	"card_damage_bonus"
 ]
-const UNIT_INTEGERS = [
-	"hp",
-	"max_hp",
-	"strength",
-	"shield",
-	"threat",
-	"passive_amount",
-	"death_serial",
-	"revives_used",
-	"revive_limit",
-	"spawn_turn",
-	"interrupt_streak",
-	"immunity",
-	"interrupt_threshold",
-	"immunity_count",
-	"intent_index"
-]
+const UNIT_INTEGERS = Models.UNIT_INTEGERS
 
 var data: RefCounted
 var rng := RandomNumberGenerator.new()
@@ -125,22 +109,8 @@ func restore(saved_state: Dictionary, random: RandomNumberGenerator, relic_ids: 
 	var restored: Dictionary = saved_state.duplicate(true)
 	for key in STATE_INTEGERS:
 		restored[key] = int(restored[key])
-	for unit in restored.heroes + restored.enemies:
-		if not unit.has("damage_reductions"):
-			unit["damage_reductions"] = []
-		for key in UNIT_INTEGERS:
-			unit[key] = int(unit[key])
-		for status in unit.statuses:
-			for contribution in unit.statuses[status]:
-				contribution.stacks = int(contribution.stacks)
-				if contribution.has("per_stack"):
-					contribution.per_stack = int(contribution.per_stack)
-		for mark in unit.marks:
-			for key in ["id", "remaining", "first_tick_turn", "amount"]:
-				mark[key] = int(mark[key])
-		for key in ["hits", "stacks", "order"]:
-			if unit.intent.has(key):
-				unit.intent[key] = int(unit.intent[key])
+	for key in ["heroes", "enemies"]:
+		restored[key] = Models.normalize_saved_units(restored[key])
 	for pile in Types.PILES:
 		for copy in restored[pile]:
 			copy.copy_id = int(copy.copy_id)
@@ -155,16 +125,16 @@ func restore(saved_state: Dictionary, random: RandomNumberGenerator, relic_ids: 
 func can_restore(saved: Dictionary) -> bool:
 	if not _serializable(saved):
 		return false
-	if (
-		saved.get("phase", -1)
-		not in [Types.BattlePhase.PLAYER, Types.BattlePhase.WON, Types.BattlePhase.LOST]
-	):
+	for key in STATE_INTEGERS:
+		if not _whole_number(saved.get(key), 0):
+			return false
+	# JSON decodes integers as floats, while Array membership is type-sensitive.
+	# Validate the integer domain before conversion so fractional phases stay invalid.
+	var phase: int = int(saved.phase)
+	if phase not in [Types.BattlePhase.PLAYER, Types.BattlePhase.WON, Types.BattlePhase.LOST]:
 		return false
 	for key in ["heroes", "enemies"] + Types.PILES:
 		if not saved.get(key) is Array:
-			return false
-	for key in STATE_INTEGERS:
-		if not _whole_number(saved.get(key), 0):
 			return false
 	if (
 		saved.turn < 1
@@ -213,11 +183,11 @@ func can_restore(saved: Dictionary) -> bool:
 				living_enemies += 1 if unit.hp > 0 else 0
 	if saved.next_enemy_index <= highest_enemy_index:
 		return false
-	if saved.phase == Types.BattlePhase.PLAYER and (living_heroes == 0 or living_enemies == 0):
+	if phase == Types.BattlePhase.PLAYER and (living_heroes == 0 or living_enemies == 0):
 		return false
-	if saved.phase == Types.BattlePhase.WON and (living_heroes == 0 or living_enemies > 0):
+	if phase == Types.BattlePhase.WON and (living_heroes == 0 or living_enemies > 0):
 		return false
-	if saved.phase == Types.BattlePhase.LOST and living_heroes > 0:
+	if phase == Types.BattlePhase.LOST and living_heroes > 0:
 		return false
 	var mark_ids: Dictionary = {}
 	for unit in unit_ids.values():
@@ -942,7 +912,7 @@ func _begin_turn() -> void:
 			enemy.enraged = true
 			events.append("enrage", {"target": enemy.id})
 		var intents: Array = data.enemy_intents(enemy.definition_id, enemy.intent_pool)
-		enemy.intent = intents[int(enemy.intent_index) % intents.size()].duplicate(true)
+		enemy.intent = Models.normalize_intent(intents[int(enemy.intent_index) % intents.size()])
 		enemy.intent_index += 1
 		if enemy.intent.get("target_rule", "threat") == "lowest_hp_ratio":
 			enemy.target_id = _lowest_health_target()
@@ -1063,9 +1033,10 @@ func apply_bomb(source: Dictionary, target: Dictionary, amount: int, duration: i
 		mark = {"id": int(state.next_mark_index), "kind": "bomb", "source_id": source.id}
 		state.next_mark_index += 1
 		target.marks.append(mark)
-	mark.remaining = duration
-	mark.first_tick_turn = int(state.turn) + 1
-	mark.amount = amount
+	# New dictionary fields must use String keys to keep the save schema JSON-only.
+	mark["remaining"] = duration
+	mark["first_tick_turn"] = int(state.turn) + 1
+	mark["amount"] = amount
 	events.append("bomb", {"target": target.id, "amount": amount, "remaining": duration})
 	return true
 
@@ -1077,7 +1048,7 @@ func _tick_bombs() -> void:
 		for mark in hero.marks.duplicate():
 			if mark.kind != "bomb" or state.turn < mark.first_tick_turn:
 				continue
-			mark.remaining -= 1
+			mark["remaining"] -= 1
 			if mark.remaining <= 0:
 				hero.marks.erase(mark)
 				state.pending_explosions.append(

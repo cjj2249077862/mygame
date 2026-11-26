@@ -4,6 +4,8 @@ const Data = preload("res://scripts/data/game_data.gd")
 const Run = preload("res://scripts/core/run_manager.gd")
 const Types = preload("res://scripts/core/enums.gd")
 @export var save_directory := "user://raiddeck"
+@export var chapter_map_preferred_size: Vector2i
+@export var chapter_map_viewport_margin: Vector2i
 var data := Data.new()
 var run: RefCounted
 var _showing_menu := true
@@ -259,8 +261,7 @@ func _on_chapter_map_pressed() -> void:
 	if state.map.is_empty():
 		return
 	_render_chapter_map(state)
-	_on_main_resized()
-	$ChapterMap.popup_centered($ChapterMap.size)
+	_fit_chapter_map()
 
 
 func _render_chapter_map(state: Dictionary) -> void:
@@ -273,12 +274,22 @@ func _render_chapter_map(state: Dictionary) -> void:
 
 
 func _on_main_resized() -> void:
-	var available: Vector2i = Vector2i(get_viewport_rect().size) - Vector2i(40, 40)
-	var window_size := Vector2i(mini(1180, available.x), mini(740, available.y))
 	if $ChapterMap.visible:
-		$ChapterMap.popup_centered(window_size)
-	else:
-		$ChapterMap.size = window_size
+		_fit_chapter_map()
+
+
+func _fit_chapter_map() -> void:
+	var available: Vector2i = Vector2i(get_viewport_rect().size) - chapter_map_viewport_margin
+	var window_size := Vector2i(
+		mini(chapter_map_preferred_size.x, available.x),
+		mini(chapter_map_preferred_size.y, available.y)
+	)
+	# AcceptDialog resets to its content minimum during popup. Apply the scene's
+	# desired size afterward and preserve the popup's parent/screen centre.
+	$ChapterMap.popup_centered()
+	var center: Vector2i = $ChapterMap.position + $ChapterMap.size / 2
+	$ChapterMap.size = window_size
+	$ChapterMap.position = center - $ChapterMap.size / 2
 
 
 func _build_text(deck: Array, relics: Array) -> String:

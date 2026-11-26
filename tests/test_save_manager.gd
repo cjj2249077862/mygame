@@ -25,7 +25,16 @@ func run_tests() -> void:
 	var first := {"value": 1, "active": true, "rng": "9223372036854775807"}
 	expect(not store.has_slot("run"))
 	expect(store.write_slot("run", first))
-	expect(store.read_slot("run") == first)
+	var decoded := store.read_slot("run")
+	expect(
+		(
+			decoded.size() == first.size()
+			and decoded.value == first.value
+			and decoded.active == first.active
+			and decoded.rng == first.rng
+		),
+		"JSON storage preserves values and 64-bit RNG strings, not integer Variant types"
+	)
 	expect(store.write_slot("run", {"value": 2, "active": true}))
 	expect(store.read_slot("run").value == 2)
 	expect(store.write_slot("meta", {"completed": 3}))

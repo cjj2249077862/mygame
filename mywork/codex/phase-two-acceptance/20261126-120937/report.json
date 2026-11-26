@@ -1,0 +1,33 @@
+{
+  "started": "20261126-120937",
+  "mode": "static",
+  "source_sha256": "3886cdbc5d997c30e7f265fda53509375fa603597928f4d9ce89f172f3368ccd",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 33
+    }
+  ],
+  "human_review": "pending",
+  "phase": 2,
+  "phase_two_accepted": false,
+  "status": "pending_engine",
+  "source_unchanged": true
+}

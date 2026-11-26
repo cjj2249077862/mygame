@@ -37,6 +37,9 @@ func run_tests() -> void:
 		return
 	_add_fixtures()
 	_test_restore_and_block()
+	_test_saved_unit_normalization()
+	_test_intent_numeric_round_trip()
+	_test_bomb_saved_boundaries()
 	_test_revive_and_cards()
 	_test_death_interrupts_even_after_revival()
 	_test_summon_lifecycle()
@@ -137,9 +140,12 @@ func _test_restore_and_block() -> void:
 	probe.owner = weakref(restored)
 	restored.events = probe
 	var decoded: Dictionary = JSON.parse_string(JSON.stringify(saved))
-	expect(restored.restore(decoded, random))
+	expect(decoded.phase is float, "Exercise JSON's floating-point representation of phase")
+	if not expect(restored.restore(decoded, random), "Restore a valid JSON battle checkpoint"):
+		return
 	expect(probe.notified == 0 and restored.events.records.is_empty())
 	expect(random.state == before_random, "Restore does not shuffle or advance RNG")
+	expect(restored.snapshot() == saved, "Restore preserves the complete canonical battle state")
 	expect(restored.state.turn == saved.turn and restored.state.hand == saved.hand)
 	expect(restored.state.relic_counters == saved.relic_counters)
 	expect(restored.state.next_mark_index == 7 and restored.state.action_serial == 11)
@@ -153,12 +159,25 @@ func _test_restore_and_block() -> void:
 	var invalid: Dictionary = saved.duplicate(true)
 	invalid.phase = Types.BattlePhase.RESOLVING
 	expect(not restored.restore(invalid, random) and restored.snapshot() == before)
+	for invalid_phase in [1.5, -1, "1", true, INF, NAN]:
+		invalid = saved.duplicate(true)
+		invalid.phase = invalid_phase
+		expect(
+			not restored.restore(invalid, random) and restored.snapshot() == before,
+			"Reject invalid phase without truncation or partial state replacement"
+		)
 	invalid = saved.duplicate(true)
 	invalid.relic_counters["invalid_object"] = RefCounted.new()
 	expect(not restored.restore(invalid, random) and restored.snapshot() == before)
 	invalid = saved.duplicate(true)
+	invalid[&"invalid_key"] = 1
+	expect(not restored.can_restore(invalid), "Save dictionaries still require String keys")
+	invalid = saved.duplicate(true)
 	invalid.enemies[0].intent.kind = "unknown_intent"
 	expect(not restored.can_restore(invalid))
+	invalid = saved.duplicate(true)
+	invalid.enemies[0].intent.hits = 1.5
+	expect(not restored.can_restore(invalid), "Intent counts are checked before normalization")
 	invalid = saved.duplicate(true)
 	invalid.heroes[0].hp = "invalid_hp"
 	expect(not restored.can_restore(invalid))
@@ -183,6 +202,105 @@ func _test_restore_and_block() -> void:
 	expect(not restored.can_restore(invalid), "Bomb sources must resolve in the saved battle")
 	restored.external_block_reason = ""
 	expect(restored.play_card(1, "warden", "warden") == "")
+
+
+func _test_saved_unit_normalization() -> void:
+	var battle := _fresh()
+	var tank: Dictionary = battle.find_unit("warden")
+	battle.resolver.add_status(battle.find_unit("enemy_0"), tank, "poison", 2, 1.0)
+	tank.damage_reductions = [1.0, 0.25]
+	var saved: Array = battle.state.heroes.duplicate(true)
+	var decoded: Array = JSON.parse_string(JSON.stringify(saved))
+	var decoded_before: Array = decoded.duplicate(true)
+	var normalized: Array = Models.normalize_saved_units(decoded)
+	expect(normalized == saved, "Unit normalization preserves canonical status and reduction types")
+	expect(decoded == decoded_before, "Unit normalization never modifies the caller's snapshot")
+	expect(
+		Models.normalize_saved_units(normalized) == normalized, "Unit normalization is idempotent"
+	)
+	expect(normalized[0].statuses.poison[0].multiplier is float)
+	expect(normalized[0].damage_reductions[0] is float)
+	var invalid: Array = decoded.duplicate(true)
+	invalid[0].hp = 1.5
+	invalid[0].statuses.poison[0].stacks = 2.5
+	var unchanged: Array = Models.normalize_saved_units(invalid)
+	expect(unchanged[0].hp == 1.5 and unchanged[0].statuses.poison[0].stacks == 2.5)
+	_round_trip_battle(battle)
+
+
+func _test_intent_numeric_round_trip() -> void:
+	for encounter_id in ["fixture_battle", "outpost_gate", "outpost_iron_throne"]:
+		var battle := _fresh([], [], encounter_id)
+		for _turn in range(2):
+			for enemy in battle.state.enemies:
+				for key in ["hits", "stacks", "order"]:
+					expect(enemy.intent[key] is int, "New intents use integer counts and order")
+				expect(enemy.intent.amount is float, "Intent amount uses a stable numeric type")
+			var restored: RefCounted = _round_trip_battle(battle)
+			if restored == null:
+				return
+			if _round_trip_battle(restored) == null:
+				return
+			_skip_enemies(battle)
+			expect(battle.end_turn() == "")
+	var fractional_battle := _fresh()
+	var saved: Dictionary = fractional_battle.snapshot()
+	saved.enemies[0].intent.amount = 5.75
+	var random := RandomNumberGenerator.new()
+	if not expect(
+		fractional_battle.restore(saved, random), "Fractional intent amounts remain valid"
+	):
+		return
+	expect(
+		fractional_battle.find_unit("enemy_0").intent.amount == 5.75, "Amounts are never truncated"
+	)
+	_round_trip_battle(fractional_battle)
+
+
+func _test_bomb_saved_boundaries() -> void:
+	var battle := _fresh([], [], "outpost_iron_throne")
+	var source: Dictionary = battle.find_unit("enemy_0")
+	var target: Dictionary = battle.find_unit("warden")
+	expect(battle.apply_bomb(source, target, 18, 2))
+	for key in target.marks[0]:
+		expect(key is String, "New bomb fields keep String keys before JSON serialization")
+	if _round_trip_battle(battle) == null:
+		return
+	expect(battle.apply_bomb(source, target, 22, 2))
+	var restored: RefCounted = _round_trip_battle(battle)
+	if restored == null:
+		return
+	for _turn in range(3):
+		_skip_enemies(battle)
+		_skip_enemies(restored)
+		expect(battle.end_turn() == "" and restored.end_turn() == "")
+		expect(
+			battle.snapshot() == restored.snapshot(), "Restored bomb countdown resolves identically"
+		)
+		expect(
+			battle.events.records == restored.events.records, "Restored bomb logs match live combat"
+		)
+		if _round_trip_battle(battle) == null:
+			return
+	expect(target.marks.is_empty(), "Bomb expiry leaves a valid complete checkpoint")
+
+
+func _round_trip_battle(battle: RefCounted) -> RefCounted:
+	var saved: Dictionary = battle.snapshot()
+	if not expect(battle.can_restore(saved), "Live checkpoint passes the same validator as saving"):
+		return null
+	var decoded: Dictionary = JSON.parse_string(JSON.stringify(saved))
+	var random := RandomNumberGenerator.new()
+	random.seed = battle.rng.seed
+	random.state = battle.rng.state
+	var before_random: int = random.state
+	var restored: RefCounted = Battle.new(data)
+	if not expect(restored.restore(decoded, random), "JSON checkpoint restores successfully"):
+		return null
+	expect(restored.snapshot() == saved, "Save, restore and save again preserve the same state")
+	expect(random.state == before_random, "Round-trip restoration preserves random progress")
+	expect(restored.events.records.is_empty(), "Restoration does not replay historical events")
+	return restored
 
 
 func _test_revive_and_cards() -> void:

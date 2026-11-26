@@ -17,7 +17,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = ('test_game_data', 'test_battle_rules', 'test_run_flow', 'test_battle_ui', 'test_battle_sim')
-ERROR_LINE = re.compile(r'(?im)^\s*(?:SCRIPT ERROR|ERROR|Parse Error|Assertion failed|FATAL)\b')
+ERROR_LINE = re.compile(r'(?im)^\s*(?:SCRIPT ERROR|ERROR|Parse Error|Compile Error|Assertion failed|FATAL)\b')
 MARKER = 'RAIDDECK_TEST_RESULT '
 
 

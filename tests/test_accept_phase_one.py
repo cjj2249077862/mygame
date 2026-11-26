@@ -30,6 +30,27 @@ class RunnerTests(unittest.TestCase):
             with self.subTest(error=error):
                 self.assertFalse(RUNNER.evaluate_suite(self.result(error+'\n'+self.marker()), 'fixture')[0])
 
+    def test_partial_suite_success_cannot_hide_script_errors(self):
+        # The phase-two audit observed these assertion counts and successful
+        # markers despite dependency errors; neither makes a clean engine run.
+        for suite, assertions in (('test_battle_rules', 5), ('test_battle_sim', 3)):
+            with self.subTest(suite=suite):
+                output = (
+                    'SCRIPT ERROR: Compile Error: Failed to compile depended scripts.\n'
+                    + self.marker(suite=suite, assertions=assertions)
+                )
+                self.assertEqual(
+                    RUNNER.evaluate_suite(self.result(output, code=0), suite),
+                    (False, 'engine_error_in_log'),
+                )
+
+    def test_standalone_compile_error_overrides_success(self):
+        output = 'Compile Error: Failed to compile depended scripts.\n' + self.marker()
+        self.assertEqual(
+            RUNNER.evaluate_suite(self.result(output, code=0), 'fixture'),
+            (False, 'engine_error_in_log'),
+        )
+
     def test_failed_empty_or_wrong_suite_is_rejected(self):
         for patch in ({'passed': False}, {'assertions': 0}, {'assertions': True}, {'failures':['failed']}, {'suite':'wrong'}):
             self.assertFalse(RUNNER.evaluate_suite(self.result(self.marker(**patch)), 'fixture')[0])

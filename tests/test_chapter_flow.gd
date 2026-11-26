@@ -34,6 +34,8 @@ func run_tests() -> void:
 	data = Data.new()
 	if not expect(data.load_directory(), str(data.errors)):
 		return
+	_test_json_checkpoint_types()
+	_test_bomb_checkpoint_round_trip()
 	_test_shop_and_camp()
 	_test_failed_shop_commit()
 	_test_event_costs_and_copies()
@@ -42,6 +44,7 @@ func run_tests() -> void:
 	_test_corruption_and_backup()
 	_test_terminal_meta_repair()
 	for phase in [
+		Types.RunPhase.BATTLE,
 		Types.RunPhase.MAP,
 		Types.RunPhase.CAMP,
 		Types.RunPhase.SHOP,
@@ -52,6 +55,99 @@ func run_tests() -> void:
 		Types.RunPhase.ABANDONED
 	]:
 		expect(phase in restored_phases, "Persistence was exercised for phase %d" % phase)
+
+
+func _test_json_checkpoint_types() -> void:
+	var run := _fixture_run("json_types")
+	var encoded: String = JSON.stringify(run.snapshot())
+	var decoded: Dictionary = JSON.parse_string(encoded)
+	expect(decoded.phase is float, "Regression fixture crosses the real JSON number boundary")
+	expect(
+		run._valid_snapshot(decoded), "JSON floating representation of an integer phase is valid"
+	)
+	for invalid in [float(Types.RunPhase.BATTLE) + 0.5, str(Types.RunPhase.BATTLE), true]:
+		var bad := decoded.duplicate(true)
+		bad.phase = invalid
+		expect(
+			not run._valid_snapshot(bad),
+			"Never coerce a fractional/string/bool phase into a valid enum"
+		)
+	var wrong_node := decoded.duplicate(true)
+	wrong_node.phase = float(Types.RunPhase.CAMP)
+	expect(not run._valid_snapshot(wrong_node), "JSON phase must still match the current node kind")
+	var premature_result := decoded.duplicate(true)
+	premature_result.result = {"outcome": "lost"}
+	expect(
+		not run._valid_snapshot(premature_result),
+		"Active JSON checkpoints cannot carry a premature or incomplete terminal result"
+	)
+	var startup := Run.new(data, run.saves.directory)
+	expect(startup.phase == Types.RunPhase.IDLE and startup.has_saved_run())
+	expect(
+		startup.meta.records.is_empty() and startup.meta.finished_ids.is_empty(),
+		"Loading an active JSON run cannot reconcile it as a terminal result"
+	)
+	expect(startup.meta.adventures is int and startup.meta.adventures == 1)
+	var before := run.battle.snapshot()
+	run = _reload(run)
+	expect(run.battle.snapshot() == before, "Battle intent and unit types stay stable through JSON")
+	# Preserve floating contribution values at the non-battle and metadata boundaries too.
+	if not _reach(run, "node_02_0"):
+		return
+	run.party[0].statuses = {
+		"regen": [{"source": "warden", "stacks": 2, "multiplier": 1.0, "per_stack": 1}]
+	}
+	run.party[0].damage_reductions = [1.0, 0.25]
+	run = _reload(run)
+	expect(run.party[0].statuses.regen[0].multiplier is float)
+	expect(run.party[0].damage_reductions[0] is float)
+	expect(run.abandon_run() == "")
+	var expected_meta: Dictionary = run.meta.duplicate(true)
+	startup = Run.new(data, run.saves.directory)
+	expect(
+		startup.meta == expected_meta,
+		"Metadata keeps integer counters and floating unit/elapsed fields"
+	)
+	expect(startup.meta.abandoned is int and startup.meta.abandoned == 1)
+	run = _reload(run)
+	expect(
+		run.result.party == run.party, "Terminal result uses the same unit normalization as the run"
+	)
+
+
+func _test_bomb_checkpoint_round_trip() -> void:
+	var run := _fixture_run("boss_bomb_json")
+	if not _reach(run, "node_10_0"):
+		return
+	# Prior fights use the documented fast-flow fixture. This Boss uses its real
+	# turn sequence, damage, bomb application and automatic checkpoint callbacks.
+	for turn in range(3):
+		if not expect(run.battle.end_turn() == "", "Advance to the real Boss bomb intent"):
+			return
+		if not expect(
+			run.persistence_error == "", "Boss turn including bomb application must save"
+		):
+			return
+	var marked := false
+	for hero in run.party:
+		marked = marked or not hero.marks.is_empty()
+	if not expect(marked, "Boss applied a bomb through the normal enemy turn"):
+		return
+	var saved_battle: Dictionary = run.battle.snapshot()
+	var random_state: int = run.rng.state
+	run = _reload(run)
+	expect(
+		run.battle.snapshot() == saved_battle and run.rng.state == random_state,
+		"Bomb target, countdown, damage and RNG survive continuation unchanged"
+	)
+	var replay := _fork(run, "boss_bomb_replay")
+	for turn in range(2):
+		expect(run.battle.end_turn() == "" and replay.battle.end_turn() == "")
+		expect(run.persistence_error == "" and replay.persistence_error == "")
+		expect(
+			_stable(run, true) == _stable(replay, true),
+			"Same actions after a bomb checkpoint keep the same countdown/explosion result"
+		)
 
 
 func _test_shop_and_camp() -> void:

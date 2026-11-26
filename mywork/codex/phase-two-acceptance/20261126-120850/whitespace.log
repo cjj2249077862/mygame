@@ -1,0 +1,4 @@
+warning: in the working copy of 'project.godot', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/main.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_accept_phase_one.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tools/accept_phase_one.py', LF will be replaced by CRLF the next time Git touches it
