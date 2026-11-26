@@ -1,76 +1,794 @@
 {
-  "version": 1,
+  "version": 2,
   "schemas": {
-    "cards": {"main": "s:id,name_key,description_key,role,owner,target,rarity;b:reward,exhaust,retain;n:cost", "effects": "s:id,card_id,kind,status,target,parameter;b:upgraded;n:order,amount,hits,threat_mult"},
-    "characters": {"main": "s:id,name_key,role,passive,portrait;n:max_hp,strength,passive_amount", "starter": "s:id,character_id,card_id;n:count"},
-    "encounters": {"main": "s:id,name_key,enemies;n:order,gold", "enemies": "s:id,name_key;n:max_hp,strength,interrupt_threshold,immunity_count", "intents": "s:id,enemy_id,kind,status;n:order,amount,hits,stacks"},
-    "battle_rules": {"main": "s:id;n:value", "statuses": "s:id,name_key;b:dispellable;n:per_stack,decay"},
-    "texts_zh_cn": {"main": "s:id,text"}
+    "cards": {
+      "main": "s:id,name_key,description_key,role,owner,target,rarity;b:reward,exhaust,retain;n:cost",
+      "effects": "s:id,card_id,kind,status,target,parameter;b:upgraded;n:order,amount,hits,threat_mult,duration"
+    },
+    "characters": {
+      "main": "s:id,name_key,role,passive,portrait;n:max_hp,strength,passive_amount",
+      "starter": "s:id,character_id,card_id;n:count"
+    },
+    "encounters": {
+      "main": "s:id,name_key,enemies,kind;n:order,gold,min_depth,max_depth",
+      "enemies": "s:id,name_key,kind;n:max_hp,strength,interrupt_threshold,immunity_count,enrage_turn,enrage_mult",
+      "intents": "s:id,enemy_id,kind,status,pool_id,target_rule,effect_group;n:order,amount,hits,stacks",
+      "effects": "s:id,group_id,kind,status,target,parameter;n:order,amount,hits,threat_mult,duration",
+      "phases": "s:id,enemy_id,enter_effect_group,intent_pool;n:threshold"
+    },
+    "battle_rules": {
+      "main": "s:id;n:value",
+      "statuses": "s:id,name_key;b:dispellable;n:per_stack,decay"
+    },
+    "texts_zh_cn": {
+      "main": "s:id,text"
+    },
+    "relics": {
+      "main": "s:id,name_key,description_key,pool,role,owner,rarity",
+      "triggers": "s:id,relic_id,event,qualifier,limit_scope,effect_group;n:priority,order,limit_count",
+      "effects": "s:id,group_id,kind,status,target,parameter;n:order,amount,hits,threat_mult,duration"
+    },
+    "events": {
+      "main": "s:id,name_key,description_key;n:weight",
+      "options": "s:id,event_id,text_key,selection,required_relic_pool;b:leave;n:order,cost_gold,cost_hp,min_hp",
+      "outcomes": "s:id,option_id;n:weight",
+      "effects": "s:id,outcome_id,kind,target,content_pool;n:order,amount"
+    },
+    "maps": {
+      "main": "s:id,name_key,boss_encounter_id,first_encounter_id;n:node_count,width",
+      "node_rules": "s:id,map_id,kind;n:weight,min_depth,max_depth",
+      "pools": "s:id,map_id,kind,content_id;n:weight"
+    },
+    "economy": {
+      "main": "s:id;n:value",
+      "card_prices": "s:id,rarity;n:price",
+      "relic_prices": "s:id,rarity;n:price",
+      "weights": "s:id,kind,source,rarity;n:weight"
+    },
+    "difficulty": {
+      "main": "s:id,name_key;b:enabled",
+      "modifiers": "s:id,difficulty_id,rule;n:value"
+    }
   },
-  "roles": ["tank", "assassin", "healer"],
-  "effects": ["damage", "heal", "shield", "interrupt", "dispel"],
-  "passives": ["first_damage", "first_heal", "first_shield"],
-  "statuses": ["poison", "burn", "regen", "weak", "vulnerable"],
-  "initial_lineup": ["warden", "blade", "mender"],
+  "roles": [
+    "tank",
+    "assassin",
+    "healer"
+  ],
+  "effects": [
+    "damage",
+    "heal",
+    "shield",
+    "interrupt",
+    "dispel",
+    "apply_status",
+    "draw",
+    "energy",
+    "taunt",
+    "revive"
+  ],
+  "passives": [
+    "first_damage",
+    "first_heal",
+    "first_shield"
+  ],
+  "statuses": [
+    "poison",
+    "burn",
+    "regen",
+    "weak",
+    "vulnerable",
+    "bomb"
+  ],
+  "initial_lineup": [
+    "warden",
+    "blade",
+    "mender"
+  ],
   "rules": {
-    "party_size": {"min": 3, "max": 3, "integer": true},
-    "base_energy": {"min": 1, "integer": true},
-    "draw_count": {"min": 1, "integer": true},
-    "hand_limit": {"min": 1, "integer": true},
-    "initial_tank_threat": {"min": 0, "integer": true},
-    "initial_other_threat": {"min": 0, "integer": true},
-    "heal_threat": {"min": 0},
-    "post_battle_revive": {"min": 0, "exclusive_min": true, "max": 1},
-    "reward_count": {"min": 1, "integer": true},
-    "weak_multiplier": {"min": 0, "max": 1},
-    "vulnerable_multiplier": {"min": 1},
-    "starting_gold": {"min": 0, "integer": true}
+    "party_size": {
+      "min": 3,
+      "max": 3,
+      "integer": true
+    },
+    "base_energy": {
+      "min": 1,
+      "integer": true
+    },
+    "draw_count": {
+      "min": 1,
+      "integer": true
+    },
+    "hand_limit": {
+      "min": 1,
+      "integer": true
+    },
+    "initial_tank_threat": {
+      "min": 0,
+      "integer": true
+    },
+    "initial_other_threat": {
+      "min": 0,
+      "integer": true
+    },
+    "heal_threat": {
+      "min": 0
+    },
+    "post_battle_revive": {
+      "min": 0,
+      "exclusive_min": true,
+      "max": 1
+    },
+    "reward_count": {
+      "min": 1,
+      "integer": true
+    },
+    "weak_multiplier": {
+      "min": 0,
+      "max": 1
+    },
+    "vulnerable_multiplier": {
+      "min": 1
+    },
+    "starting_gold": {
+      "min": 0,
+      "integer": true
+    },
+    "combat_revive_limit": {
+      "min": 1,
+      "integer": true
+    }
   },
   "starter_cards": {
-    "slash": {"role": "tank", "owner": "", "target": "enemy", "effects": [{"kind": "damage", "hits": 1}]},
-    "guard": {"role": "tank", "owner": "", "target": "self", "effects": [{"kind": "shield", "hits": 1}]},
-    "stab": {"role": "assassin", "owner": "", "target": "enemy", "effects": [{"kind": "damage", "hits": 1}]},
-    "parry": {"role": "assassin", "owner": "", "target": "self", "effects": [{"kind": "shield", "hits": 1}]},
-    "smite": {"role": "healer", "owner": "", "target": "enemy", "effects": [{"kind": "damage", "hits": 1}]},
-    "heal": {"role": "healer", "owner": "", "target": "ally", "effects": [{"kind": "heal", "hits": 1}]},
-    "shield_bash": {"role": "", "owner": "warden", "target": "enemy", "effects": [{"kind": "damage", "hits": 1}, {"kind": "interrupt", "hits": 1}]},
-    "double_stab": {"role": "", "owner": "blade", "target": "enemy", "effects": [{"kind": "damage", "hits": 2}]},
-    "first_aid": {"role": "", "owner": "mender", "target": "ally", "effects": [{"kind": "heal", "hits": 1}, {"kind": "dispel", "hits": 1}]}
+    "slash": {
+      "role": "tank",
+      "owner": "",
+      "target": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "hits": 1
+        }
+      ]
+    },
+    "guard": {
+      "role": "tank",
+      "owner": "",
+      "target": "self",
+      "effects": [
+        {
+          "kind": "shield",
+          "hits": 1
+        }
+      ]
+    },
+    "stab": {
+      "role": "assassin",
+      "owner": "",
+      "target": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "hits": 1
+        }
+      ]
+    },
+    "parry": {
+      "role": "assassin",
+      "owner": "",
+      "target": "self",
+      "effects": [
+        {
+          "kind": "shield",
+          "hits": 1
+        }
+      ]
+    },
+    "smite": {
+      "role": "healer",
+      "owner": "",
+      "target": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "hits": 1
+        }
+      ]
+    },
+    "heal": {
+      "role": "healer",
+      "owner": "",
+      "target": "ally",
+      "effects": [
+        {
+          "kind": "heal",
+          "hits": 1
+        }
+      ]
+    },
+    "shield_bash": {
+      "role": "",
+      "owner": "warden",
+      "target": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "hits": 1
+        },
+        {
+          "kind": "interrupt",
+          "hits": 1
+        }
+      ]
+    },
+    "double_stab": {
+      "role": "",
+      "owner": "blade",
+      "target": "enemy",
+      "effects": [
+        {
+          "kind": "damage",
+          "hits": 2
+        }
+      ]
+    },
+    "first_aid": {
+      "role": "",
+      "owner": "mender",
+      "target": "ally",
+      "effects": [
+        {
+          "kind": "heal",
+          "hits": 1
+        },
+        {
+          "kind": "dispel",
+          "hits": 1
+        }
+      ]
+    }
   },
-  "fixed_upgrade_fields": ["kind", "hits", "status", "target", "parameter", "threat_mult"],
+  "fixed_upgrade_fields": [
+    "kind",
+    "hits",
+    "status",
+    "target",
+    "parameter",
+    "threat_mult",
+    "duration"
+  ],
   "required_texts": {
-    "ui.title": [], "ui.subtitle": [], "ui.start": [], "ui.restart": [],
-    "ui.end_turn": [], "ui.cast": [], "ui.cancel": [], "ui.skip": [],
-    "ui.reward": [], "ui.win": [], "ui.loss": [], "ui.loading": [],
-    "ui.select_card": [], "ui.select_caster": [], "ui.select_target": [], "ui.confirm_self": [],
-    "ui.confirm_end": [], "ui.confirm": [], "ui.close": [], "ui.piles": [],
-    "ui.fast": [], "ui.dispel": [], "ui.dispel_confirm": [], "ui.party": [],
-    "ui.enemies": [], "ui.log": [], "ui.reward_hint": [], "ui.result_hint": [],
-    "ui.stats": ["energy", "gold", "turn"],
-    "ui.unit": ["hp", "max_hp", "name", "shield", "threat"],
-    "ui.card": ["cost", "description", "name"],
-    "ui.intent": ["amount", "hits", "immunity", "kind", "stacks", "status", "target"],
-    "ui.immune": [], "ui.not_immune": [], "ui.interrupted": [], "ui.dead": [],
-    "ui.preview": ["hp_delta", "name", "shield_delta", "threat_delta"],
-    "ui.preview_cost": ["cost", "energy"], "ui.preview_dispel": ["status"],
-    "ui.pile.draw": [], "ui.pile.hand": [], "ui.pile.discard": [],
-    "ui.pile.exhaust": [], "ui.pile.removed": [], "ui.pile.deck": [],
-    "ui.kind.normal": [], "ui.kind.interruptible": [], "ui.kind.uninterruptible": [],
-    "error.phase": [], "error.card": [], "error.energy": [], "error.caster": [],
-    "error.target": [], "error.dispel": [], "error.config": [],
-    "log.start": ["turn"],
-    "log.damage": ["amount", "source", "target"],
-    "log.heal": ["amount", "source", "target"],
-    "log.shield": ["amount", "source", "target"],
-    "log.interrupt": ["target"], "log.interrupt_failed": ["target"],
-    "log.dispel": ["status", "target"], "log.status": ["amount", "status", "target"],
-    "log.death": ["target"], "log.ot": ["target"], "log.win": [], "log.loss": [],
-    "ui.health": [], "ui.status_effect": [],
-    "keyword.retain": [], "keyword.exhaust": [], "keyword.interrupt": [],
-    "status_desc.poison": ["per_stack", "decay"],
-    "status_desc.burn": ["per_stack", "decay"],
-    "status_desc.regen": ["per_stack", "decay"],
-    "status_desc.weak": ["percent", "decay"],
-    "status_desc.vulnerable": ["percent", "decay"]
+    "ui.title": [],
+    "ui.subtitle": [],
+    "ui.start": [],
+    "ui.restart": [],
+    "ui.end_turn": [],
+    "ui.cast": [],
+    "ui.cancel": [],
+    "ui.skip": [],
+    "ui.reward": [],
+    "ui.win": [],
+    "ui.loss": [],
+    "ui.loading": [],
+    "ui.select_card": [],
+    "ui.select_caster": [],
+    "ui.select_target": [],
+    "ui.confirm_self": [],
+    "ui.confirm_end": [],
+    "ui.confirm": [],
+    "ui.close": [],
+    "ui.piles": [],
+    "ui.fast": [],
+    "ui.dispel": [],
+    "ui.dispel_confirm": [],
+    "ui.party": [],
+    "ui.enemies": [],
+    "ui.log": [],
+    "ui.reward_hint": [],
+    "ui.result_hint": [],
+    "ui.stats": [
+      "energy",
+      "gold",
+      "turn"
+    ],
+    "ui.unit": [
+      "hp",
+      "max_hp",
+      "name",
+      "shield",
+      "threat"
+    ],
+    "ui.card": [
+      "cost",
+      "description",
+      "name"
+    ],
+    "ui.intent": [
+      "amount",
+      "hits",
+      "immunity",
+      "kind",
+      "stacks",
+      "status",
+      "target"
+    ],
+    "ui.immune": [],
+    "ui.not_immune": [],
+    "ui.interrupted": [],
+    "ui.dead": [],
+    "ui.preview": [
+      "hp_delta",
+      "name",
+      "shield_delta",
+      "threat_delta"
+    ],
+    "ui.preview_cost": [
+      "cost",
+      "energy"
+    ],
+    "ui.preview_dispel": [
+      "status"
+    ],
+    "ui.pile.draw": [],
+    "ui.pile.hand": [],
+    "ui.pile.discard": [],
+    "ui.pile.exhaust": [],
+    "ui.pile.removed": [],
+    "ui.pile.deck": [],
+    "ui.kind.normal": [],
+    "ui.kind.interruptible": [],
+    "ui.kind.uninterruptible": [],
+    "error.phase": [],
+    "error.card": [],
+    "error.energy": [],
+    "error.caster": [],
+    "error.target": [],
+    "error.dispel": [],
+    "error.config": [],
+    "log.start": [
+      "turn"
+    ],
+    "log.damage": [
+      "amount",
+      "source",
+      "target"
+    ],
+    "log.heal": [
+      "amount",
+      "source",
+      "target"
+    ],
+    "log.shield": [
+      "amount",
+      "source",
+      "target"
+    ],
+    "log.interrupt": [
+      "target"
+    ],
+    "log.interrupt_failed": [
+      "target"
+    ],
+    "log.dispel": [
+      "status",
+      "target"
+    ],
+    "log.status": [
+      "amount",
+      "status",
+      "target"
+    ],
+    "log.death": [
+      "target"
+    ],
+    "log.ot": [
+      "target"
+    ],
+    "log.win": [],
+    "log.loss": [],
+    "ui.health": [],
+    "ui.status_effect": [],
+    "keyword.retain": [],
+    "keyword.exhaust": [],
+    "keyword.interrupt": [],
+    "status_desc.poison": [
+      "per_stack",
+      "decay"
+    ],
+    "status_desc.burn": [
+      "per_stack",
+      "decay"
+    ],
+    "status_desc.regen": [
+      "per_stack",
+      "decay"
+    ],
+    "status_desc.weak": [
+      "percent",
+      "decay"
+    ],
+    "status_desc.vulnerable": [
+      "percent",
+      "decay"
+    ],
+    "log.revive": [
+      "amount",
+      "source",
+      "target"
+    ],
+    "log.summon": [
+      "target"
+    ],
+    "log.phase": [
+      "phase",
+      "target"
+    ],
+    "status_desc.bomb": [],
+    "keyword.revive": [
+      "limit"
+    ],
+    "ui.chapter_title": [],
+    "ui.chapter_subtitle": [],
+    "ui.continue_run": [],
+    "ui.continue_failed": [],
+    "ui.return_menu": [],
+    "ui.abandon": [],
+    "ui.exit": [],
+    "ui.inspect": [],
+    "ui.relics": [],
+    "ui.replace_run_confirm": [],
+    "ui.abandon_confirm": [],
+    "ui.save_failed": [
+      "reason"
+    ],
+    "ui.retry_save": [],
+    "ui.run_header": [
+      "depth",
+      "gold"
+    ],
+    "ui.action_rejected": [],
+    "ui.result_trial": [],
+    "ui.result_abandoned": [],
+    "ui.result_details": [
+      "depth",
+      "difficulty",
+      "elapsed",
+      "party"
+    ],
+    "ui.map_title": [],
+    "ui.map_hint": [],
+    "ui.map_boss": [
+      "description",
+      "name"
+    ],
+    "ui.map_node": [
+      "depth",
+      "kind"
+    ],
+    "ui.map_status.current": [],
+    "ui.map_status.visited": [],
+    "ui.map_status.unvisited": [],
+    "ui.node.battle": [],
+    "ui.node.elite": [],
+    "ui.node.camp": [],
+    "ui.node.shop": [],
+    "ui.node.event": [],
+    "ui.node.boss": [],
+    "ui.camp_hint": [],
+    "ui.camp_recovery": [
+      "amount",
+      "hp",
+      "max_hp",
+      "name"
+    ],
+    "ui.camp_rest": [],
+    "ui.camp_upgrade": [],
+    "ui.choose_upgrade": [],
+    "ui.choose_remove": [],
+    "ui.choose_card_copy": [],
+    "ui.upgrade_compare": [
+      "after",
+      "before"
+    ],
+    "ui.remove_confirm": [
+      "card",
+      "cost"
+    ],
+    "ui.shop_hint": [
+      "gold"
+    ],
+    "ui.shop_offer": [
+      "description",
+      "name",
+      "price"
+    ],
+    "ui.sold_out": [],
+    "ui.out_of_stock": [],
+    "ui.not_enough_gold": [],
+    "ui.shop_refresh": [
+      "cost"
+    ],
+    "ui.shop_remove": [
+      "cost"
+    ],
+    "ui.leave_shop": [],
+    "ui.reward_gold": [
+      "gold"
+    ],
+    "ui.reward_cards": [],
+    "ui.reward_cards_done": [],
+    "ui.reward_relics": [],
+    "ui.reward_relics_done": [],
+    "ui.skip_relic": [],
+    "ui.event_choose_target": [],
+    "ui.event_confirm": [],
+    "ui.event_selection_hint": [],
+    "log.draw": [
+      "amount"
+    ],
+    "log.energy": [
+      "amount"
+    ],
+    "log.taunt": [
+      "amount",
+      "target"
+    ],
+    "log.bomb": [
+      "amount",
+      "remaining",
+      "target"
+    ],
+    "log.bomb_explode": [
+      "amount",
+      "target"
+    ],
+    "log.enrage": [
+      "target"
+    ],
+    "effect.damage": [
+      "amount",
+      "hits"
+    ],
+    "effect.heal": [
+      "amount"
+    ],
+    "effect.shield": [
+      "amount"
+    ],
+    "effect.interrupt": [],
+    "effect.dispel": [],
+    "effect.apply_status": [
+      "amount",
+      "status"
+    ],
+    "effect.draw": [
+      "amount"
+    ],
+    "effect.energy": [
+      "amount"
+    ],
+    "effect.taunt": [
+      "amount"
+    ],
+    "effect.revive": [
+      "amount"
+    ],
+    "effect.bomb": [
+      "amount",
+      "duration"
+    ],
+    "effect.clear_status": [
+      "status"
+    ],
+    "ui.confirm_scope": [],
+    "ui.intent_targets": [
+      "targets"
+    ],
+    "ui.boss_phase": [
+      "phase"
+    ],
+    "ui.enrage_turn": [
+      "turn"
+    ],
+    "ui.bomb_remaining": [
+      "remaining"
+    ],
+    "ui.recovered_backup": [],
+    "save.invalid_save_slot": [],
+    "save.save_corrupt_or_incompatible": [],
+    "save.cannot_create_save_directory": [],
+    "save.temporary_save_verification_failed": [],
+    "save.backup_verification_failed": [],
+    "save.backup_replace_failed": [],
+    "save.save_replace_failed": [],
+    "save.save_open_failed": [],
+    "save.save_write_failed": [],
+    "ui.discard_bad_run": [],
+    "ui.enraged": [],
+    "error.node": [],
+    "error.token": [],
+    "error.upgraded": [],
+    "error.gold": [],
+    "error.sold_out": [],
+    "error.selection": [],
+    "error.empty_pool": [],
+    "error.load": [],
+    "error.active_run": [],
+    "error.save": [],
+    "run.hero_cost": [
+      "after",
+      "cost",
+      "hp",
+      "name"
+    ],
+    "run.upgrade_compare": [
+      "after",
+      "before"
+    ],
+    "run.gold_cost": [
+      "amount"
+    ],
+    "run.hp_cost": [
+      "amount"
+    ],
+    "run.event.gold": [
+      "amount"
+    ],
+    "run.event.heal": [
+      "amount"
+    ],
+    "run.event.heal_unit": [
+      "amount",
+      "name"
+    ],
+    "run.event.hp_loss": [
+      "amount"
+    ],
+    "run.event.upgrade": [],
+    "run.event.remove": [],
+    "run.event.grant_relic": [],
+    "run.event.leave": [],
+    "run.probability": [
+      "effects",
+      "percent"
+    ],
+    "chapter.boss_description": [],
+    "ui.revive_quota": [
+      "limit",
+      "used"
+    ],
+    "ui.bomb_snapshot": [
+      "amount",
+      "remaining"
+    ],
+    "ui.chapter_map": [],
+    "ui.map_readonly_hint": []
+  },
+  "empty_sheets": [
+    "difficulty/modifiers"
+  ],
+  "encounter_effects": [
+    "damage",
+    "heal",
+    "shield",
+    "interrupt",
+    "dispel",
+    "apply_status",
+    "draw",
+    "energy",
+    "taunt",
+    "revive",
+    "bomb",
+    "clear_status"
+  ],
+  "relic_effects": [
+    "shield",
+    "apply_status",
+    "draw",
+    "heal",
+    "energy",
+    "threat",
+    "base_damage_bonus",
+    "first_damage_bonus",
+    "first_shield_bonus",
+    "first_heal_bonus",
+    "base_energy",
+    "base_draw",
+    "camp_heal_ratio"
+  ],
+  "effect_targets": [
+    "selected",
+    "self",
+    "all_allies",
+    "all_enemies",
+    "none"
+  ],
+  "card_targets": [
+    "enemy",
+    "ally",
+    "self",
+    "dead_ally",
+    "none"
+  ],
+  "relic_events": [
+    "battle_started",
+    "turn_started",
+    "cards_drawn",
+    "card_played",
+    "status_dispelled",
+    "interrupt_resolved",
+    "battle_ended",
+    "base_resources",
+    "camp_rest"
+  ],
+  "relic_qualifiers": [
+    "all",
+    "role:tank",
+    "role:assassin",
+    "role:healer",
+    "first_turn",
+    "card_success",
+    "victory"
+  ],
+  "relic_scopes": [
+    "battle",
+    "turn",
+    "actor_turn",
+    "card_target",
+    "none"
+  ],
+  "economy_rules": {
+    "camp_heal_ratio": {
+      "min": 0,
+      "integer": false,
+      "max": 1
+    },
+    "shop_card_slots": {
+      "min": 0,
+      "integer": true
+    },
+    "shop_relic_slots": {
+      "min": 0,
+      "integer": true
+    },
+    "refresh_base": {
+      "min": 0,
+      "integer": true
+    },
+    "refresh_step": {
+      "min": 0,
+      "integer": true
+    },
+    "remove_base": {
+      "min": 0,
+      "integer": true
+    },
+    "remove_step": {
+      "min": 0,
+      "integer": true
+    },
+    "recent_run_limit": {
+      "min": 1,
+      "integer": true
+    },
+    "boss_relic_choices": {
+      "min": 0,
+      "integer": true
+    },
+    "elite_relic_choices": {
+      "min": 0,
+      "integer": true
+    }
+  },
+  "parameter_scales": {
+    "revive": 100,
+    "camp_heal_ratio": 100
+  },
+  "content_counts": {
+    "cards": 40,
+    "relics": 15,
+    "normal_elite_enemies": 10,
+    "events": 3,
+    "bosses": 1
   }
 }

@@ -9,7 +9,7 @@ const BattleLog = preload("res://scripts/ui/battle/battle_log.gd")
 func run_tests() -> void:
 	var data := Data.new()
 	expect(data.load_directory(), str(data.errors))
-	expect(data.rows("cards").size() == 9)
+	expect(data.rows("cards").size() == 40)
 	expect(data.card_effects("double_stab", true)[0].hits == 2)
 	var good := data.books.duplicate(true)
 	var bad := good.duplicate(true)
@@ -41,8 +41,81 @@ func run_tests() -> void:
 	_test_additional_validation(data, good)
 	_test_keyword_details(data)
 	_test_number_presentation(data)
+	_test_phase_two_data(data, good)
 	_test_bundle_rejection(data, good)
 	_test_heal_export_to_presentation(good)
+
+
+func _test_phase_two_data(data: RefCounted, good: Dictionary) -> void:
+	expect(data.rows("relics").size() == 15)
+	expect(data.rows("events").size() == 3)
+	expect(data.rows("encounters", "enemies").size() == 11)
+	expect(data.chapter_definition().node_count == 10)
+	expect(data.price_for("card", "slash") == 35)
+	expect(data.weight_for("card", "slash", "battle") == 70)
+	expect(data.weight_for("card", "slash", "reward") == 70)
+	expect(data.event_options("event_sealed_cache").size() == 3)
+	expect(data.event_outcomes("cache_force").size() == 2)
+	expect(data.event_effects("cache_force.2").size() == 2)
+	expect(data.relic_modifier(["camp_kettle"], "camp_rest", "camp_heal_ratio") == 0.1)
+	expect(data.relic_text("camp_kettle").contains("10 个百分点"))
+	expect(data.card_text(Models.card(1, "mender_resuscitate")).contains("30%"))
+	expect(data.enemy_phases("boss_iron_warden")[0].threshold == 0.5)
+	expect(data.enemy_intents("boss_iron_warden", "iron_phase2").size() == 3)
+	var copy: Array = data.event_options("event_sealed_cache")
+	copy[0].cost_gold = 999
+	expect(
+		data.event_options("event_sealed_cache")[0].cost_gold == 0,
+		"Queries do not expose mutable configuration"
+	)
+	var bad := good.duplicate(true)
+	bad.relics.sheets.triggers[0].event = "missing"
+	expect(not data.validate(bad))
+	bad = good.duplicate(true)
+	bad.encounters.sheets.phases[0].threshold = 1
+	expect(not data.validate(bad))
+	bad = good.duplicate(true)
+	bad.maps.sheets.main[0].boss_encounter_id = "outpost_gate"
+	expect(not data.validate(bad))
+	bad = good.duplicate(true)
+	for option in bad.events.sheets.options:
+		if option.id == "cache_force":
+			option.min_hp = 8
+	expect(not data.validate(bad))
+	bad = good.duplicate(true)
+	bad.economy.sheets.weights.pop_back()
+	expect(not data.validate(bad))
+	bad = good.duplicate(true)
+	bad.relics.sheets.triggers[0].limit_scope = "actor_turn"
+	expect(not data.validate(bad), "Battle-start notifications have no acting-card context")
+	bad = good.duplicate(true)
+	bad.relics.sheets.effects[0].target = "event_target"
+	expect(not data.validate(bad), "Battle-start notifications have no card target")
+	bad = good.duplicate(true)
+	for effect in bad.relics.sheets.effects:
+		if effect.kind == "base_draw" and effect.amount < 0:
+			effect.amount = -99
+	expect(not data.validate(bad), "Combined relic modifiers cannot make base draw negative")
+	bad = good.duplicate(true)
+	for weight in bad.economy.sheets.weights:
+		if weight.kind == "card" and weight.source == "battle":
+			weight.weight = 0
+	expect(not data.validate(bad), "Each reward source needs a positive weight total")
+	bad = good.duplicate(true)
+	for encounter in bad.encounters.sheets.main:
+		if encounter.kind == "normal" and encounter.id != "outpost_gate":
+			encounter.min_depth = 3
+	expect(not data.validate(bad), "A valid ID alone does not make depth-two content available")
+	bad = good.duplicate(true)
+	for effect in bad.events.sheets.effects:
+		if effect.kind == "hp_loss":
+			var extra: Dictionary = effect.duplicate(true)
+			extra.id = "additional_life_cost_fixture"
+			extra.order = 3
+			bad.events.sheets.effects.append(extra)
+			break
+	expect(not data.validate(bad), "Life affordability covers the sum of every effect in a branch")
+	expect(data.books == good, "Invalid phase-two content does not replace the active bundle")
 
 
 func _test_additional_validation(data: RefCounted, good: Dictionary) -> void:
@@ -115,6 +188,20 @@ func _test_keyword_details(data: RefCounted) -> void:
 	expect(data.status_details("poison").contains("1"))
 	expect(not data.status_details("weak").contains("{percent}"))
 	expect(data.status_details("weak").contains("75"))
+	expect(
+		data.card_details(Models.card(1, "assassin_toxin")).contains(data.status_details("poison")),
+		"Status cards explain their keyword before the status has been applied"
+	)
+	expect(
+		data.relic_text("quiet_incense").contains(data.status_details("regen")),
+		"Relic tooltips explain applied statuses"
+	)
+	expect(
+		data.card_details(Models.card(1, "mender_resuscitate")).contains(
+			data.text("keyword.revive", {"limit": data.rule("combat_revive_limit")})
+		),
+		"Revive cards explain the configured shared quota and recovery rounding"
+	)
 
 
 func _test_number_presentation(data: RefCounted) -> void:

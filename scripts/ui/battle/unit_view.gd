@@ -36,39 +36,49 @@ func render(
 		$Content/Portrait.texture = load(unit.portrait)
 	var status_text: Array[String] = []
 	var status_help: Array[String] = []
+	if unit.friendly:
+		status_help.append(
+			data.text(
+				"ui.revive_quota",
+				{"used": unit.get("revives_used", 0), "limit": unit.get("revive_limit", 1)}
+			)
+		)
 	for status in unit.statuses:
 		status_text.append(
 			"%s %d" % [data.text("status." + status), engine.status_count(unit, status)]
 		)
 		status_help.append(data.status_details(status))
+	for mark in unit.get("marks", []):
+		if mark.kind == "bomb":
+			status_text.append(data.text("ui.bomb_remaining", {"remaining": mark.remaining}))
+			status_help.append(
+				data.text("ui.bomb_snapshot", {"remaining": mark.remaining, "amount": mark.amount})
+			)
+			status_help.append(data.status_details("bomb"))
 	$Content/Statuses.text = "　".join(status_text)
 	$Content/Intent.text = ""
 	if unit.hp <= 0:
 		$Content/Intent.text = data.text("ui.dead")
 	elif not unit.friendly and not unit.intent.is_empty():
-		var target: Dictionary = engine.find_unit(unit.target_id)
-		var amount: int = (
-			engine.resolver.damage_value(unit, target, unit.intent.amount)
-			if not target.is_empty()
-			else 0
-		)
-		$Content/Intent.text = (
-			data.text("ui.interrupted")
-			if unit.interrupted
-			else data.text(
-				"ui.intent",
-				{
-					"kind": data.text("ui.kind." + unit.intent.kind),
-					"target": data.text(target.get("name_key", "")),
-					"amount": amount,
-					"hits": unit.intent.hits,
-					"status":
-					data.text("status." + unit.intent.status) if unit.intent.status != "" else "",
-					"stacks": unit.intent.stacks if unit.intent.status != "" else "",
-					"immunity": data.text("ui.immune" if unit.immunity > 0 else "ui.not_immune")
-				}
-			)
-		)
+		var preview: Dictionary = engine.intent_preview(unit.id)
+		var targets: Array[String] = []
+		for target_id in preview.target_ids:
+			var target: Dictionary = engine.find_unit(str(target_id))
+			if not target.is_empty():
+				targets.append(data.text(target.name_key))
+		var lines: Array[String] = [
+			data.text("ui.kind." + str(preview.kind)),
+			data.text("ui.intent_targets", {"targets": " / ".join(targets)}),
+			data.text("ui.interrupted") if unit.interrupted else str(preview.description),
+			data.text("ui.immune" if preview.immune else "ui.not_immune")
+		]
+		if int(preview.boss_phase) > 0:
+			lines.append(data.text("ui.boss_phase", {"phase": preview.boss_phase}))
+		if preview.get("enraged", false):
+			lines.append(data.text("ui.enraged"))
+		elif int(preview.enrage_turn) > 0:
+			lines.append(data.text("ui.enrage_turn", {"turn": preview.enrage_turn}))
+		$Content/Intent.text = "\n".join(lines)
 	_selected = selected
 	set_pressed_no_signal(selected)
 	modulate = get_theme_color("target_highlight", "UnitView") if highlighted else Color.WHITE

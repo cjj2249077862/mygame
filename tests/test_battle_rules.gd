@@ -69,7 +69,23 @@ func run_tests() -> void:
 func _fresh() -> RefCounted:
 	var run := Run.new(data)
 	expect(run.start(261126))
+	_ensure_second_enemy(run.battle)
 	return run
+
+
+func _ensure_second_enemy(battle: RefCounted) -> void:
+	# Production outpost_gate is the approved single-enemy tutorial. Rules tests
+	# that need a surviving opponent declare that extra opponent explicitly.
+	if battle.state.enemies.size() == 1:
+		var first: Dictionary = battle.state.enemies[0]
+		var second: Dictionary = Models.unit(
+			data.definition("encounters", first.definition_id, "enemies"), "enemy_1", false
+		)
+		second.intent = first.intent.duplicate(true)
+		second.intent_index = first.intent_index
+		second.target_id = first.target_id
+		battle.state.enemies.append(second)
+		battle.state.next_enemy_index = 2
 
 
 func _hand(battle: RefCounted, id: String) -> void:
@@ -328,7 +344,10 @@ func _test_status_threat_by_source() -> void:
 		{"source": "mender", "stacks": 1, "multiplier": 1.0}
 	]
 	b.resolver.tick_status(target, "poison")
-	expect(source.threat == 1 and b.find_unit("mender").threat == 1)
+	expect(
+		source.threat == 1 and b.find_unit("mender").threat == 0,
+		"C6 assigns the one actual damage point by largest remainder and fixed source order"
+	)
 	run = _fresh()
 	b = run.battle
 	target = b.find_unit("enemy_0")
@@ -506,13 +525,15 @@ func _test_exhaust_cycle_and_next_battle() -> void:
 		expect(b.play_card(2000, "warden", enemy.id) == "")
 	expect(run.phase == Types.RunPhase.REWARD)
 	expect(run.skip_reward(run.reward_token))
+	var next_battle: RefCounted = Battle.new(data)
+	next_battle.start(run.party, run.deck, b.state.encounter_id, run.rng)
 	var restored_count := 0
 	for pile in Types.PILES:
-		for card in run.battle.state[pile]:
+		for card in next_battle.state[pile]:
 			if card.copy_id == 1000:
 				restored_count += 1
 				expect(pile in ["hand", "draw"])
-	expect(restored_count == 1 and run.battle.state.exhaust.is_empty())
+	expect(restored_count == 1 and next_battle.state.exhaust.is_empty())
 	data.books = original
 
 
@@ -573,7 +594,10 @@ func _test_rule_event_order() -> void:
 	for hero in party:
 		hero.passive_used = true
 	b.start(party, run.deck, b.state.encounter_id, b.rng)
-	expect(probe.notifications == ["battle_started", "turn_started"])
+	_ensure_second_enemy(b)
+	expect(
+		probe.notifications == ["base_resources", "battle_started", "turn_started", "cards_drawn"]
+	)
 	for hero in b.state.heroes:
 		expect(not hero.passive_used, "Lifecycle responders reset each actual caster")
 	probe.notifications.clear()
@@ -593,7 +617,7 @@ func _test_rule_event_order() -> void:
 	for enemy in b.state.enemies:
 		enemy.interrupted = true
 	expect(b.end_turn() == "")
-	expect(probe.notifications == ["turn_ended", "turn_started"])
+	expect(probe.notifications == ["turn_ended", "base_resources", "turn_started", "cards_drawn"])
 	expect(not b.find_unit("warden").passive_used)
 	# The lethal transition, death cleanup, card completion and win all settle
 	# before either presentation signal can observe the action.

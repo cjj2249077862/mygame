@@ -3,6 +3,8 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+import tempfile
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('accept_phase_one', Path(__file__).resolve().parents[1]/'tools/accept_phase_one.py')
 RUNNER = importlib.util.module_from_spec(SPEC)
@@ -40,6 +42,25 @@ class RunnerTests(unittest.TestCase):
     def test_timeout_and_exit_code(self):
         self.assertFalse(RUNNER.evaluate_suite(self.result(self.marker(), code=1), 'fixture')[0])
         self.assertFalse(RUNNER.evaluate_suite(self.result(self.marker(), timeout=True), 'fixture')[0])
+
+    def test_import_allows_only_generated_script_uids(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(RUNNER, 'ROOT', Path(folder)):
+            root = Path(folder)
+            (root/'scripts').mkdir()
+            (root/'project.godot').write_text('config_version=5\n', encoding='utf-8')
+            source = root/'scripts/fixture.gd'
+            source.write_text('extends RefCounted\n', encoding='utf-8')
+            before = RUNNER.fingerprint()
+            uid = root/'scripts/fixture.gd.uid'
+            uid.write_text('uid://cabc12345\n', encoding='utf-8')
+            self.assertEqual(RUNNER.accept_generated_uids(set(), before), ['scripts/fixture.gd.uid'])
+            source.write_text('extends Node\n', encoding='utf-8')
+            self.assertEqual(RUNNER.accept_generated_uids(set(), before), [])
+            source.write_text('extends RefCounted\n', encoding='utf-8')
+            uid.write_text('invalid\n', encoding='utf-8')
+            self.assertEqual(RUNNER.accept_generated_uids(set(), before), [])
+            uid.write_text('uid://cabc12345\n', encoding='utf-8')
+            self.assertEqual(RUNNER.accept_generated_uids({'scripts/fixture.gd.uid'}, before), [])
 
 
 if __name__ == '__main__':

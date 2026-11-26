@@ -2,48 +2,92 @@ extends "res://tests/test_suite.gd"
 
 const Data = preload("res://scripts/data/game_data.gd")
 const Run = preload("res://scripts/core/run_manager.gd")
-const Models = preload("res://scripts/core/models.gd")
 const Types = preload("res://scripts/core/enums.gd")
 
 
 func run_tests() -> void:
 	var data := Data.new()
-	expect(data.load_directory(), str(data.errors))
+	if not expect(data.load_directory(), str(data.errors)):
+		return
 	var run := Run.new(data)
 	expect(not run.start(42, ["warden", "warden", "mender"]))
 	expect(run.start(42))
 	expect(run.deck.size() == 15 and run.battle.state.hand.size() == 5)
 	var initial: Dictionary = run.battle.snapshot()
+	expect(not run.start(42), "An active adventure cannot be silently replaced")
+	expect(run.battle.snapshot() == initial, "Rejected replacement preserves combat")
+	expect(run.abandon_run() == "")
 	expect(run.start(42))
-	expect(run.battle.snapshot() == initial, "Identical seed reproduces opening")
+	expect(run.battle.snapshot() == initial, "Identical seed reproduces the map and opening")
 	run.battle.find_unit("mender").hp = 0
 	run.battle.handle_death(run.battle.find_unit("mender"))
 	run.battle.find_unit("blade").hp = 7
 	_win(run)
 	expect(run.phase == Types.RunPhase.REWARD)
-	expect(run.party[2].hp == 12 and run.party[1].hp == 7)
+	expect(
+		run.party[2].hp == 12 and run.party[1].hp == 7,
+		"Only fallen allies receive post-battle revival"
+	)
 	var candidates: Array = run.reward_candidates.duplicate()
-	var token: int = run.reward_token
+	var token: int = run.action_token
 	var random_state: int = run.rng.state
-	expect(run.reward_candidates == candidates and run.rng.state == random_state)
+	run.view_snapshot()
+	run.view_snapshot()
+	expect(
+		run.reward_candidates == candidates and run.rng.state == random_state,
+		"Repeated view snapshots preserve generated rewards"
+	)
 	expect(not run.claim_reward("not_a_candidate", token))
 	expect(run.claim_reward(candidates[0], token))
-	expect(run.deck.size() == 16 and run.stage_index == 1 and run.gold == 15)
+	expect(
+		(
+			run.deck.size() == 16
+			and run.phase == Types.RunPhase.MAP
+			and run.stage_index == 0
+			and run.gold == 15
+		)
+	)
 	expect(not run.claim_reward(candidates[0], token))
 	expect(not run.skip_reward(token))
+	if not _advance_to_battle(run):
+		return
+	var reward_gold_before: int = run.gold
+	var encounter: Dictionary = data.definition("encounters", run.battle.state.encounter_id)
 	_win(run)
+	expect(
+		run.gold == reward_gold_before + int(encounter.gold),
+		"Each encountered battle grants its configured gold once"
+	)
 	var deck_before: Array = run.deck.duplicate(true)
-	token = run.reward_token
+	token = run.action_token
 	expect(run.skip_reward(token))
-	expect(run.deck == deck_before and run.stage_index == 2 and run.gold == 35)
+	expect(run.deck == deck_before, "Skipping a card preserves the master deck")
 	expect(not run.skip_reward(token))
-	_win(run)
-	expect(run.phase == Types.RunPhase.WON and run.reward_candidates.is_empty())
+	_skip_rewards(run)
+	for step in range(10):
+		if run.phase == Types.RunPhase.WON:
+			break
+		if not _advance_to_battle(run):
+			break
+		_win(run)
+		_skip_rewards(run)
+	expect(
+		run.phase == Types.RunPhase.WON and run.visited.size() == 10,
+		"Complete ten connected nodes before finishing the trial"
+	)
+	expect(
+		run.reward_candidates.is_empty() and run.relic_candidates.is_empty(),
+		"All final reward parts are settled"
+	)
+	expect(
+		run.result.outcome == "chapter_complete",
+		"The trial does not count as full three-chapter completion"
+	)
 	expect(run.start(44))
 	for hero in run.battle.state.heroes:
 		hero.hp = 1
 		hero.statuses = {"poison": [{"source": "enemy_0", "stacks": 100, "multiplier": 1}]}
-	run.battle.end_turn()
+	expect(run.battle.end_turn() == "")
 	expect(run.phase == Types.RunPhase.LOST)
 	expect(run.start(45))
 	expect(run.deck.size() == 15 and run.gold == 0 and run.stage_index == 0)
@@ -57,13 +101,61 @@ func _win(run: RefCounted) -> void:
 			continue
 		enemy.hp = 1
 		battle.state.energy = 10
-		battle.state.hand = [Models.card(9000, "slash")]
-		expect(battle.play_card(9000, "warden", enemy.id) == "")
+		var copy_id := _put_in_hand(battle, "slash")
+		if copy_id < 0:
+			return
+		expect(battle.play_card(copy_id, "warden", enemy.id) == "")
+
+
+func _skip_rewards(run: RefCounted) -> void:
+	if run.phase == Types.RunPhase.REWARD and not run.reward_cards_done:
+		expect(run.skip_reward(run.action_token))
+	if run.phase == Types.RunPhase.REWARD and not run.reward_relics_done:
+		expect(run.skip_relic(run.action_token))
+
+
+func _advance_to_battle(run: RefCounted) -> bool:
+	for step in range(30):
+		match run.phase:
+			Types.RunPhase.BATTLE:
+				return true
+			Types.RunPhase.WON:
+				return false
+			Types.RunPhase.MAP:
+				var next_id := ""
+				for node in run.view_snapshot().map.nodes:
+					if node.available:
+						next_id = str(node.id)
+						break
+				if not expect(next_id != "", "The map has a reachable next node"):
+					return false
+				if not expect(run.choose_node(next_id, run.action_token) == ""):
+					return false
+			Types.RunPhase.CAMP:
+				expect(run.camp_rest(run.action_token) == "")
+			Types.RunPhase.SHOP:
+				expect(run.leave_shop(run.action_token) == "")
+			Types.RunPhase.EVENT:
+				var leave_id := ""
+				for option in run.view_snapshot().event.options:
+					if str(option.id).ends_with("_leave"):
+						leave_id = str(option.id)
+						break
+				if not expect(leave_id != "", "Every event offers free departure"):
+					return false
+				expect(run.choose_event_option(leave_id, run.action_token) == "")
+			Types.RunPhase.REWARD:
+				_skip_rewards(run)
+			_:
+				expect(false, "Unexpected phase while traversing the chapter")
+				return false
+	expect(false, "Chapter navigation must be bounded")
+	return false
 
 
 func _test_character_extension(data: RefCounted) -> void:
 	var original: Dictionary = data.books.duplicate(true)
-	var hero: Dictionary = data.definition("characters", "warden")
+	var hero: Dictionary = data.definition("characters", "warden").duplicate(true)
 	hero.id = "fixture_tank"
 	hero._source = "test fixture/characters/main"
 	data.books.characters.sheets.main.append(hero)
@@ -79,7 +171,7 @@ func _test_character_extension(data: RefCounted) -> void:
 		)
 	if not expect(
 		data.validate(data.books),
-		"New character must validate without a new script: " + str(data.errors)
+		"New character validates without a new script: " + str(data.errors)
 	):
 		data.books = original
 		return
@@ -99,7 +191,14 @@ func _test_character_extension(data: RefCounted) -> void:
 	expect(battle.play_card(guard_id, "fixture_tank", "fixture_tank") == "")
 	expect(battle.find_unit("fixture_tank").shield == 12, "Second tank owns its shield and passive")
 	expect(
-		battle.find_unit("warden").shield == 0, "First tank must not receive second tank's shield"
+		battle.find_unit("warden").shield == 0, "First tank does not receive second tank's shield"
+	)
+	var slash_id := _put_in_hand(battle, "slash")
+	var threat_before: int = battle.find_unit("fixture_tank").threat
+	expect(battle.play_card(slash_id, "fixture_tank", "enemy_0") == "")
+	expect(
+		battle.find_unit("fixture_tank").threat > threat_before,
+		"Threat belongs to the actual second tank caster"
 	)
 	var exclusive_id := _put_in_hand(battle, "shield_bash")
 	expect(

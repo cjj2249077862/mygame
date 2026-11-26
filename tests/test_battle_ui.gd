@@ -1,7 +1,6 @@
 extends "res://tests/test_suite.gd"
 
 const MainScene = preload("res://scenes/main.tscn")
-const Models = preload("res://scripts/core/models.gd")
 const Types = preload("res://scripts/core/enums.gd")
 
 var app: Control
@@ -13,6 +12,7 @@ func run_tests() -> void:
 	root.size = Vector2i(1440, 900)
 	root.gui_embed_subwindows = true
 	app = MainScene.instantiate()
+	app.save_directory = "user://battle_ui_%d" % Time.get_ticks_usec()
 	root.add_child(app)
 	await process_frame
 	if not expect(app.run != null, "Main must load configuration and create RunManager"):
@@ -30,7 +30,9 @@ func run_tests() -> void:
 	await _test_unavailable_target_reason()
 	await _test_end_turn_clears_selection()
 	await _test_dispel_choice()
+	await _test_self_dispel_choice()
 	await _test_multiple_casters()
+	await _test_scope_revive_and_bomb()
 	await _test_play_lock_and_restart()
 	await _test_rewards_and_results()
 	await _test_rebuild_during_presentation()
@@ -43,6 +45,8 @@ func run_tests() -> void:
 func _settle() -> void:
 	for i in range(300):
 		if not view.locked:
+			if app.get_node("ChapterMap").visible:
+				app.get_node("ChapterMap").get_ok_button().pressed.emit()
 			await process_frame
 			return
 		await create_timer(0.01).timeout
@@ -51,6 +55,8 @@ func _settle() -> void:
 
 func _restart() -> void:
 	app._on_start()
+	if app.get_node("Confirm").visible:
+		app.get_node("Confirm").get_ok_button().pressed.emit()
 	await _settle()
 
 
@@ -68,10 +74,25 @@ func _unit(id: String) -> Node:
 
 func _hand(card_id: String) -> void:
 	view.clear_selection()
+	var selected: Dictionary = {}
+	for copy in app.run.deck:
+		if copy.card_id == card_id:
+			selected = copy.duplicate(true)
+			break
+	if not expect(not selected.is_empty(), "UI fixture requires a real run card: " + card_id):
+		return
 	for pile in Types.PILES:
 		view.engine.state[pile] = []
-	_copy_id += 1
-	view.engine.state.hand = [Models.card(_copy_id, card_id)]
+	_copy_id = int(selected.copy_id)
+	view.engine.state.hand = [selected]
+	for copy in app.run.deck:
+		if copy.copy_id != _copy_id:
+			var eligible: Array = view.engine._casters_for_definition(
+				app.data.definition("cards", copy.card_id)
+			)
+			view.engine.state["removed" if eligible.is_empty() else "draw"].append(
+				copy.duplicate(true)
+			)
 	view.engine.state.energy = 3
 	view.refresh()
 
@@ -235,18 +256,71 @@ func _test_dispel_choice() -> void:
 	await _restart()
 
 
-func _test_multiple_casters() -> void:
-	var second: Dictionary = Models.unit(
-		app.data.definition("characters", "warden"), "tank_2", true
+func _test_self_dispel_choice() -> void:
+	# Exercise the supported self + dispel composition without altering source content.
+	var original: Dictionary = app.data.books.duplicate(true)
+	for definition in app.data.books.cards.sheets.main:
+		if definition.id == "first_aid":
+			definition.target = "self"
+	_hand("first_aid")
+	var hero: Dictionary = view.engine.find_unit("mender")
+	hero.hp -= 20
+	view.engine.resolver.add_status(view.engine.find_unit("enemy_0"), hero, "poison", 2)
+	view.engine.resolver.add_status(view.engine.find_unit("enemy_0"), hero, "weak", 1)
+	view.refresh()
+	_select_card()
+	var before: Dictionary = view.engine.snapshot()
+	expect(view.cast_button.visible and view.selected_caster == "mender")
+	view.cast_button.pressed.emit()
+	var dialog = view.get_node("DispelConfirm")
+	expect(
+		dialog.visible and view.dispel_choices.item_count == 2,
+		"Self-target cast uses the same status-choice flow as a clicked target"
 	)
-	second.definition_id = "second_tank_fixture"
-	view.engine.state.heroes[1] = second
+	expect(view.engine.snapshot() == before, "Opening self dispel confirmation spends nothing")
+	dialog.get_cancel_button().pressed.emit()
+	expect(view.engine.snapshot() == before and view.selected_copy == -1)
+	_select_card()
+	view.cast_button.pressed.emit()
+	view.dispel_choices.select(1)
+	view.dispel_choices.item_selected.emit(1)
+	var status: String = view.chosen_status
+	dialog.get_ok_button().pressed.emit()
+	await _settle()
+	expect(
+		not hero.statuses.has(status) and hero.statuses.size() == 1,
+		"Self dispel applies only the chosen status removal"
+	)
+	expect(hero.hp > before.heroes[2].hp)
+	app.data.books = original
+	await _restart()
+
+
+func _test_multiple_casters() -> void:
+	var original: Dictionary = app.data.books.duplicate(true)
+	var definition: Dictionary = app.data.definition("characters", "warden").duplicate(true)
+	definition.id = "second_tank_fixture"
+	app.data.books.characters.sheets.main.append(definition)
+	for entry in [{"card_id": "slash", "count": 2}, {"card_id": "guard", "count": 3}]:
+		app.data.books.characters.sheets.starter.append(
+			{
+				"id": "ui_fixture_" + entry.card_id,
+				"character_id": definition.id,
+				"card_id": entry.card_id,
+				"count": entry.count,
+				"_source": "UI fixture"
+			}
+		)
+	expect(app.run.abandon_run() == "")
+	expect(app.run.start(261126, ["warden", "second_tank_fixture", "mender"]))
+	await _settle()
+	var second: Dictionary = view.engine.find_unit("second_tank_fixture")
 	_hand("guard")
 	_select_card()
 	expect(view.selected_caster == "", "A shared class card asks which matching hero casts")
-	_unit("tank_2").pressed.emit()
+	_unit("second_tank_fixture").pressed.emit()
 	expect(
-		view.selected_caster == "tank_2" and view.cast_button.visible,
+		view.selected_caster == "second_tank_fixture" and view.cast_button.visible,
 		"Second same-class hero can be selected"
 	)
 	expect(
@@ -262,6 +336,70 @@ func _test_multiple_casters() -> void:
 	_hand("shield_bash")
 	_select_card()
 	expect(view.selected_caster == "warden", "A personal card still selects only its owner")
+	await _restart()
+	app.data.books = original
+
+
+func _test_scope_revive_and_bomb() -> void:
+	app.run._add_card("warden_wall")
+	_hand("warden_wall")
+	_select_card()
+	expect(
+		view.cast_button.visible and view.selected_caster == "warden",
+		"Group cards explicitly confirm their caster"
+	)
+	var affected: Array = view.engine.action_targets(_copy_id, "warden", "warden")
+	expect(affected.size() == 3, "Group card range includes all three living allies")
+	for id in affected:
+		expect(
+			_unit(id).modulate == _unit(id).get_theme_color("target_highlight", "UnitView"),
+			"Every affected ally is highlighted"
+		)
+	var before: Dictionary = view.engine.snapshot()
+	_unit("blade").pressed.emit()
+	expect(view.engine.snapshot() == before, "A group card waits for the explicit cast button")
+	view.cast_button.pressed.emit()
+	await _settle()
+	for hero in view.engine.state.heroes:
+		expect(hero.shield > 0, "Group shield reaches each living ally")
+	app.run._add_card("mender_resuscitate")
+	var fallen: Dictionary = view.engine.find_unit("warden")
+	view.engine.resolver.damage(view.engine.find_unit("enemy_0"), fallen, fallen.hp + fallen.shield)
+	_hand("mender_resuscitate")
+	_select_card()
+	expect(view._target_is_legal("warden"), "Revival offers a dead ally as a valid target")
+	_unit("warden").pressed.emit()
+	await _settle()
+	expect(fallen.hp > 0, "Choosing the fallen ally resolves revival")
+	var hero: Dictionary = view.engine.find_unit("blade")
+	hero.marks.append(
+		{
+			"id": 999,
+			"kind": "bomb",
+			"source_id": "enemy_0",
+			"remaining": 2,
+			"first_tick_turn": view.engine.state.turn + 1,
+			"amount": 18
+		}
+	)
+	view.refresh()
+	expect(
+		_unit("blade").get_node("Content/Statuses").text.contains(
+			app.data.text("ui.bomb_remaining", {"remaining": 2})
+		)
+	)
+	hero.marks.back().remaining = 1
+	view.refresh()
+	expect(
+		_unit("blade").get_node("Content/Statuses").text.contains(
+			app.data.text("ui.bomb_remaining", {"remaining": 1})
+		),
+		"Bomb display follows the live remaining countdown"
+	)
+	expect(
+		_unit("blade").tooltip_text.contains(app.data.status_details("bomb")),
+		"Bomb inspection includes dispel and effect details"
+	)
 	await _restart()
 
 
@@ -327,11 +465,11 @@ func _test_rewards_and_results() -> void:
 	await _win()
 	var reward = app.get_node("Reward")
 	expect(reward.visible and not view.visible, "Ordinary victory enters the reward page")
-	var candidates: Array = app.run.reward_candidates.duplicate()
+	var candidates: Array = app.run.view_snapshot().rewards.cards.duplicate()
 	var random_state: int = app.run.rng.state
 	app._on_run_changed()
 	expect(
-		app.run.reward_candidates == candidates and app.run.rng.state == random_state,
+		app.run.view_snapshot().rewards.cards == candidates and app.run.rng.state == random_state,
 		"Reward redraw preserves candidates and RNG"
 	)
 	var claims := {"count": 0}
@@ -342,29 +480,33 @@ func _test_rewards_and_results() -> void:
 	button.pressed.emit()
 	expect(
 		claims.count == 1 and app.run.deck.size() == old_size + 1,
-		"Double reward click emits once and adds one card"
+		"Double reward click adds one card"
 	)
-	expect(not reward.visible and view.visible, "Claim switches immediately to the next battle")
-	await _settle()
+	expect(app.get_node("Map").visible and not reward.visible, "Claim returns to the chapter map")
+	await _advance_to_battle()
 	await _win()
 	var skips := {"count": 0}
 	reward.skipped.connect(func(_token: int) -> void: skips.count += 1)
 	var before_deck: Array = app.run.deck.duplicate(true)
 	reward.get_node("Margin/Content/Skip").pressed.emit()
 	reward.get_node("Margin/Content/Skip").pressed.emit()
+	expect(skips.count == 1 and app.run.deck == before_deck, "Double skip preserves the deck")
+	_skip_remaining_rewards()
+	for step in range(12):
+		if app.run.phase == Types.RunPhase.WON:
+			break
+		await _advance_to_battle()
+		if app.run.phase != Types.RunPhase.BATTLE:
+			break
+		await _win(true)
+		_skip_remaining_rewards()
 	expect(
-		skips.count == 1 and app.run.deck == before_deck,
-		"Double skip emits once and preserves the deck"
-	)
-	await _settle()
-	await _win(true)
-	expect(
-		app.get_node("Result").visible and not reward.visible,
-		"Final victory goes straight to result"
+		app.get_node("Result").visible and app.run.phase == Types.RunPhase.WON,
+		"Boss rewards finish the first chapter trial"
 	)
 	expect(
 		not view.get_node("Piles").visible and view.selected_copy == -1,
-		"Leaving battle clears its popup and selection"
+		"Leaving combat clears its popup and selection"
 	)
 	app.get_node("Result/Content/Restart").pressed.emit()
 	await _settle()
@@ -385,12 +527,63 @@ func _test_rewards_and_results() -> void:
 	)
 
 
+func _skip_remaining_rewards() -> void:
+	var reward = app.get_node("Reward")
+	if app.run.phase == Types.RunPhase.REWARD and not app.run.view_snapshot().rewards.cards_done:
+		reward.get_node("Margin/Content/Skip").pressed.emit()
+	if app.run.phase == Types.RunPhase.REWARD and not app.run.view_snapshot().rewards.relics_done:
+		reward.get_node("Margin/Content/SkipRelic").pressed.emit()
+
+
+func _advance_to_battle() -> void:
+	for step in range(30):
+		var state: Dictionary = app.run.view_snapshot()
+		match app.run.phase:
+			Types.RunPhase.BATTLE:
+				await _settle()
+				return
+			Types.RunPhase.WON, Types.RunPhase.LOST:
+				return
+			Types.RunPhase.MAP:
+				var chosen := ""
+				for node in state.map.nodes:
+					if node.available:
+						chosen = str(node.id)
+						break
+				if not expect(chosen != "", "Map offers a connected next node"):
+					return
+				app.get_node("Map")._on_node_pressed(chosen, int(state.token))
+			Types.RunPhase.CAMP:
+				app.get_node("NodePanel/Margin/Content/Camp/Rest").pressed.emit()
+			Types.RunPhase.SHOP:
+				app.get_node("NodePanel/Margin/Content/ShopActions/Leave").pressed.emit()
+			Types.RunPhase.EVENT:
+				var found := false
+				for option in state.event.options:
+					if str(option.id).ends_with("_leave"):
+						app.get_node("NodePanel")._on_event_option(option, int(state.token))
+						app.get_node("NodePanel/Picker").get_ok_button().pressed.emit()
+						found = true
+						break
+				if not expect(found, "Every event includes a free leave option"):
+					return
+			Types.RunPhase.REWARD:
+				_skip_remaining_rewards()
+			_:
+				expect(false, "Unexpected chapter phase")
+				return
+		await process_frame
+	expect(false, "Navigation must reach combat within its bounded action count")
+
+
 func _test_rebuild_during_presentation() -> void:
 	_hand("slash")
 	_select_card()
 	_unit("enemy_0").pressed.emit()
 	expect(view.locked, "Old presentation is pending")
 	app._on_start()
+	if app.get_node("Confirm").visible:
+		app.get_node("Confirm").get_ok_button().pressed.emit()
 	var new_engine: RefCounted = view.engine
 	await _settle()
 	await create_timer(0.1).timeout
@@ -444,9 +637,16 @@ func _test_keyword_details() -> void:
 
 func _test_resize() -> void:
 	for window_size in [Vector2i(1280, 800), Vector2i(1440, 900)]:
+		# canvas_items keeps a fixed logical viewport unless this is changed too.
+		root.content_scale_size = window_size
 		root.size = window_size
 		await process_frame
 		await process_frame
+		expect(
+			app.get_viewport_rect().size == Vector2(window_size),
+			"Resize test changes the logical viewport to %s" % window_size
+		)
+		expect(app.size == Vector2(window_size), "Main follows the changed logical viewport")
 		var bounds: Rect2 = app.get_viewport_rect().grow(1)
 		expect(
 			bounds.encloses(view.end_button.get_global_rect()),

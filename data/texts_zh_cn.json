@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sheets": {
     "main": [
       {
@@ -546,8 +546,1288 @@
         "id": "status_desc.vulnerable",
         "text": "易伤：受到的直接伤害变为原来的 {percent}%；回合末减少 {decay} 回合。",
         "_source": "texts_zh_cn.xlsx/main/row 110"
+      },
+      {
+        "id": "card.tank_bulwark",
+        "text": "挑衅防御",
+        "_source": "texts_zh_cn.xlsx/main/row 111"
+      },
+      {
+        "id": "desc.tank_bulwark",
+        "text": "获得 {shield} 护盾，再将自身仇恨设为全队最高值加 {threat}。",
+        "_source": "texts_zh_cn.xlsx/main/row 112"
+      },
+      {
+        "id": "card.tank_crush",
+        "text": "沉重挥击",
+        "_source": "texts_zh_cn.xlsx/main/row 113"
+      },
+      {
+        "id": "desc.tank_crush",
+        "text": "造成 {amount} 点伤害，伤害仇恨倍率为 2。",
+        "_source": "texts_zh_cn.xlsx/main/row 114"
+      },
+      {
+        "id": "card.tank_cover",
+        "text": "掩护",
+        "_source": "texts_zh_cn.xlsx/main/row 115"
+      },
+      {
+        "id": "desc.tank_cover",
+        "text": "为一名队友提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 116"
+      },
+      {
+        "id": "card.tank_break",
+        "text": "压制打击",
+        "_source": "texts_zh_cn.xlsx/main/row 117"
+      },
+      {
+        "id": "desc.tank_break",
+        "text": "造成 {damage} 点伤害，再施加 {stacks} 回合虚弱。",
+        "_source": "texts_zh_cn.xlsx/main/row 118"
+      },
+      {
+        "id": "card.assassin_precise",
+        "text": "精准刺杀",
+        "_source": "texts_zh_cn.xlsx/main/row 119"
+      },
+      {
+        "id": "desc.assassin_precise",
+        "text": "造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 120"
+      },
+      {
+        "id": "card.assassin_feint",
+        "text": "佯攻",
+        "_source": "texts_zh_cn.xlsx/main/row 121"
+      },
+      {
+        "id": "desc.assassin_feint",
+        "text": "造成 {damage} 点伤害，再抽 {draw} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 122"
+      },
+      {
+        "id": "card.assassin_toxin",
+        "text": "淬毒刃",
+        "_source": "texts_zh_cn.xlsx/main/row 123"
+      },
+      {
+        "id": "desc.assassin_toxin",
+        "text": "造成 {damage} 点伤害，再施加 {stacks} 层中毒。",
+        "_source": "texts_zh_cn.xlsx/main/row 124"
+      },
+      {
+        "id": "card.assassin_opening",
+        "text": "寻隙",
+        "_source": "texts_zh_cn.xlsx/main/row 125"
+      },
+      {
+        "id": "desc.assassin_opening",
+        "text": "造成 {damage} 点伤害，再施加 {stacks} 回合易伤。",
+        "_source": "texts_zh_cn.xlsx/main/row 126"
+      },
+      {
+        "id": "card.healer_renew",
+        "text": "回春",
+        "_source": "texts_zh_cn.xlsx/main/row 127"
+      },
+      {
+        "id": "desc.healer_renew",
+        "text": "为一名队友施加 {stacks} 层再生。",
+        "_source": "texts_zh_cn.xlsx/main/row 128"
+      },
+      {
+        "id": "card.healer_shelter",
+        "text": "安抚屏障",
+        "_source": "texts_zh_cn.xlsx/main/row 129"
+      },
+      {
+        "id": "desc.healer_shelter",
+        "text": "为一名队友提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 130"
+      },
+      {
+        "id": "card.healer_cleanse",
+        "text": "净疗",
+        "_source": "texts_zh_cn.xlsx/main/row 131"
+      },
+      {
+        "id": "desc.healer_cleanse",
+        "text": "驱散一种负面状态，再恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 132"
+      },
+      {
+        "id": "card.healer_ember",
+        "text": "净焰",
+        "_source": "texts_zh_cn.xlsx/main/row 133"
+      },
+      {
+        "id": "desc.healer_ember",
+        "text": "造成 {damage} 点伤害，再施加 {stacks} 层灼烧。",
+        "_source": "texts_zh_cn.xlsx/main/row 134"
+      },
+      {
+        "id": "card.warden_fortress",
+        "text": "壁垒",
+        "_source": "texts_zh_cn.xlsx/main/row 135"
+      },
+      {
+        "id": "desc.warden_fortress",
+        "text": "获得 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 136"
+      },
+      {
+        "id": "card.warden_rally",
+        "text": "稳固阵线",
+        "_source": "texts_zh_cn.xlsx/main/row 137"
+      },
+      {
+        "id": "desc.warden_rally",
+        "text": "获得 {shield} 护盾，再抽 {draw} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 138"
+      },
+      {
+        "id": "card.warden_command",
+        "text": "挑战号令",
+        "_source": "texts_zh_cn.xlsx/main/row 139"
+      },
+      {
+        "id": "desc.warden_command",
+        "text": "将自身仇恨设为全队最高值加 {threat}，再获得 {shield} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 140"
+      },
+      {
+        "id": "card.warden_wall",
+        "text": "钢铁防线",
+        "_source": "texts_zh_cn.xlsx/main/row 141"
+      },
+      {
+        "id": "desc.warden_wall",
+        "text": "为全体存活队友各提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 142"
+      },
+      {
+        "id": "card.warden_resolve",
+        "text": "坚守待援",
+        "_source": "texts_zh_cn.xlsx/main/row 143"
+      },
+      {
+        "id": "desc.warden_resolve",
+        "text": "获得 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 144"
+      },
+      {
+        "id": "card.blade_execution",
+        "text": "致命一击",
+        "_source": "texts_zh_cn.xlsx/main/row 145"
+      },
+      {
+        "id": "desc.blade_execution",
+        "text": "造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 146"
+      },
+      {
+        "id": "card.blade_flurry",
+        "text": "三连突刺",
+        "_source": "texts_zh_cn.xlsx/main/row 147"
+      },
+      {
+        "id": "desc.blade_flurry",
+        "text": "连续攻击三次，每次造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 148"
+      },
+      {
+        "id": "card.blade_disrupt",
+        "text": "扰乱刺击",
+        "_source": "texts_zh_cn.xlsx/main/row 149"
+      },
+      {
+        "id": "desc.blade_disrupt",
+        "text": "造成 {amount} 点伤害，并尝试打断。",
+        "_source": "texts_zh_cn.xlsx/main/row 150"
+      },
+      {
+        "id": "card.blade_exploit",
+        "text": "撕裂破绽",
+        "_source": "texts_zh_cn.xlsx/main/row 151"
+      },
+      {
+        "id": "desc.blade_exploit",
+        "text": "造成 {damage} 点伤害，再施加 {stacks} 回合易伤。",
+        "_source": "texts_zh_cn.xlsx/main/row 152"
+      },
+      {
+        "id": "card.blade_prepare",
+        "text": "蓄势",
+        "_source": "texts_zh_cn.xlsx/main/row 153"
+      },
+      {
+        "id": "desc.blade_prepare",
+        "text": "抽 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 154"
+      },
+      {
+        "id": "card.mender_restore",
+        "text": "强效疗愈",
+        "_source": "texts_zh_cn.xlsx/main/row 155"
+      },
+      {
+        "id": "desc.mender_restore",
+        "text": "恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 156"
+      },
+      {
+        "id": "card.mender_mass_heal",
+        "text": "集体救护",
+        "_source": "texts_zh_cn.xlsx/main/row 157"
+      },
+      {
+        "id": "desc.mender_mass_heal",
+        "text": "全体存活队友各恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 158"
+      },
+      {
+        "id": "card.mender_purify",
+        "text": "洁净屏障",
+        "_source": "texts_zh_cn.xlsx/main/row 159"
+      },
+      {
+        "id": "desc.mender_purify",
+        "text": "驱散一种负面状态，再提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 160"
+      },
+      {
+        "id": "card.mender_resuscitate",
+        "text": "战地复苏",
+        "_source": "texts_zh_cn.xlsx/main/row 161"
+      },
+      {
+        "id": "desc.mender_resuscitate",
+        "text": "复活一名尚有本场额度的阵亡队友，恢复最大生命的 {percent}%。",
+        "_source": "texts_zh_cn.xlsx/main/row 162"
+      },
+      {
+        "id": "card.mender_reserve",
+        "text": "急救准备",
+        "_source": "texts_zh_cn.xlsx/main/row 163"
+      },
+      {
+        "id": "desc.mender_reserve",
+        "text": "共享能量增加 {energy}，再抽 {draw} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 164"
+      },
+      {
+        "id": "card.tactic_plan",
+        "text": "战术整理",
+        "_source": "texts_zh_cn.xlsx/main/row 165"
+      },
+      {
+        "id": "desc.tactic_plan",
+        "text": "抽 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 166"
+      },
+      {
+        "id": "card.tactic_guard",
+        "text": "集合防御",
+        "_source": "texts_zh_cn.xlsx/main/row 167"
+      },
+      {
+        "id": "desc.tactic_guard",
+        "text": "全体存活队友各获得 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 168"
+      },
+      {
+        "id": "card.tactic_bandage",
+        "text": "随身绷带",
+        "_source": "texts_zh_cn.xlsx/main/row 169"
+      },
+      {
+        "id": "desc.tactic_bandage",
+        "text": "恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 170"
+      },
+      {
+        "id": "card.tactic_purge",
+        "text": "应急净化",
+        "_source": "texts_zh_cn.xlsx/main/row 171"
+      },
+      {
+        "id": "desc.tactic_purge",
+        "text": "驱散一种负面状态，再提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 172"
+      },
+      {
+        "id": "unit.sharpshooter",
+        "text": "弩手",
+        "_source": "texts_zh_cn.xlsx/main/row 173"
+      },
+      {
+        "id": "unit.shield_guard",
+        "text": "铁盾卫",
+        "_source": "texts_zh_cn.xlsx/main/row 174"
+      },
+      {
+        "id": "unit.torchbearer",
+        "text": "火炬手",
+        "_source": "texts_zh_cn.xlsx/main/row 175"
+      },
+      {
+        "id": "unit.prison_hound",
+        "text": "狱犬",
+        "_source": "texts_zh_cn.xlsx/main/row 176"
+      },
+      {
+        "id": "unit.hexer",
+        "text": "咒印侍从",
+        "_source": "texts_zh_cn.xlsx/main/row 177"
+      },
+      {
+        "id": "unit.gaoler",
+        "text": "重甲狱卒",
+        "_source": "texts_zh_cn.xlsx/main/row 178"
+      },
+      {
+        "id": "unit.alchemist",
+        "text": "疫剂师",
+        "_source": "texts_zh_cn.xlsx/main/row 179"
+      },
+      {
+        "id": "unit.boss_iron_warden",
+        "text": "黑铁典狱长",
+        "_source": "texts_zh_cn.xlsx/main/row 180"
+      },
+      {
+        "id": "encounter.outpost_gate",
+        "text": "哨所大门",
+        "_source": "texts_zh_cn.xlsx/main/row 181"
+      },
+      {
+        "id": "encounter.outpost_patrol",
+        "text": "巡逻小队",
+        "_source": "texts_zh_cn.xlsx/main/row 182"
+      },
+      {
+        "id": "encounter.outpost_hall",
+        "text": "前厅警戒",
+        "_source": "texts_zh_cn.xlsx/main/row 183"
+      },
+      {
+        "id": "encounter.outpost_bolts",
+        "text": "弩箭伏击",
+        "_source": "texts_zh_cn.xlsx/main/row 184"
+      },
+      {
+        "id": "encounter.outpost_brazier",
+        "text": "火盆长廊",
+        "_source": "texts_zh_cn.xlsx/main/row 185"
+      },
+      {
+        "id": "encounter.outpost_guardroom",
+        "text": "卫兵室",
+        "_source": "texts_zh_cn.xlsx/main/row 186"
+      },
+      {
+        "id": "encounter.outpost_hexcell",
+        "text": "咒印牢房",
+        "_source": "texts_zh_cn.xlsx/main/row 187"
+      },
+      {
+        "id": "encounter.outpost_crossfire",
+        "text": "交叉火力",
+        "_source": "texts_zh_cn.xlsx/main/row 188"
+      },
+      {
+        "id": "encounter.outpost_trial",
+        "text": "队长试炼",
+        "_source": "texts_zh_cn.xlsx/main/row 189"
+      },
+      {
+        "id": "encounter.outpost_lockdown",
+        "text": "封锁区",
+        "_source": "texts_zh_cn.xlsx/main/row 190"
+      },
+      {
+        "id": "encounter.outpost_laboratory",
+        "text": "疫剂实验室",
+        "_source": "texts_zh_cn.xlsx/main/row 191"
+      },
+      {
+        "id": "encounter.outpost_iron_throne",
+        "text": "黑铁王座",
+        "_source": "texts_zh_cn.xlsx/main/row 192"
+      },
+      {
+        "id": "status.bomb",
+        "text": "定时炸弹",
+        "_source": "texts_zh_cn.xlsx/main/row 193"
+      },
+      {
+        "id": "status_desc.bomb",
+        "text": "定时炸弹：可驱散。倒计时归零时对全队造成机制伤害；携带者阵亡会提前引爆。",
+        "_source": "texts_zh_cn.xlsx/main/row 194"
+      },
+      {
+        "id": "keyword.revive",
+        "text": "复活：恢复一名阵亡角色；按恢复比例向上取整，至少恢复1点生命。每人每场共享{limit}次复活额度；成功复活才消耗额度，不重置已用被动。",
+        "_source": "texts_zh_cn.xlsx/main/row 195"
+      },
+      {
+        "id": "ui.chapter_map",
+        "text": "章节地图",
+        "_source": "texts_zh_cn.xlsx/main/row 196"
+      },
+      {
+        "id": "ui.map_readonly_hint",
+        "text": "查看整章路线与首领简介。关闭后继续当前节点；后续节点需在地图页面按连线选择。",
+        "_source": "texts_zh_cn.xlsx/main/row 197"
+      },
+      {
+        "id": "log.revive",
+        "text": "{source} 复活了 {target}，恢复 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 198"
+      },
+      {
+        "id": "log.summon",
+        "text": "{target} 加入战场，下回合开始行动。",
+        "_source": "texts_zh_cn.xlsx/main/row 199"
+      },
+      {
+        "id": "log.phase",
+        "text": "{target} 进入阶段 {phase}。",
+        "_source": "texts_zh_cn.xlsx/main/row 200"
+      },
+      {
+        "id": "log.draw",
+        "text": "抽取 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 201"
+      },
+      {
+        "id": "log.energy",
+        "text": "共享能量增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 202"
+      },
+      {
+        "id": "log.taunt",
+        "text": "{target} 的仇恨变为 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 203"
+      },
+      {
+        "id": "log.bomb",
+        "text": "{target} 被挂上炸弹：倒计时 {remaining}，爆发基础伤害 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 204"
+      },
+      {
+        "id": "log.bomb_explode",
+        "text": "{target} 的炸弹爆炸，基础伤害 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 205"
+      },
+      {
+        "id": "log.enrage",
+        "text": "{target} 进入狂暴！",
+        "_source": "texts_zh_cn.xlsx/main/row 206"
+      },
+      {
+        "id": "effect.damage",
+        "text": "造成 {amount} 点伤害 × {hits}。",
+        "_source": "texts_zh_cn.xlsx/main/row 207"
+      },
+      {
+        "id": "effect.heal",
+        "text": "恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 208"
+      },
+      {
+        "id": "effect.shield",
+        "text": "提供 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 209"
+      },
+      {
+        "id": "effect.interrupt",
+        "text": "尝试打断当前读条。",
+        "_source": "texts_zh_cn.xlsx/main/row 210"
+      },
+      {
+        "id": "effect.dispel",
+        "text": "驱散一种可驱散负面状态。",
+        "_source": "texts_zh_cn.xlsx/main/row 211"
+      },
+      {
+        "id": "effect.apply_status",
+        "text": "施加 {amount} 层／回合{status}。",
+        "_source": "texts_zh_cn.xlsx/main/row 212"
+      },
+      {
+        "id": "effect.draw",
+        "text": "抽 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 213"
+      },
+      {
+        "id": "effect.energy",
+        "text": "共享能量增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 214"
+      },
+      {
+        "id": "effect.taunt",
+        "text": "仇恨设为全队最高值加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 215"
+      },
+      {
+        "id": "effect.revive",
+        "text": "复活并恢复最大生命的 {amount}%。",
+        "_source": "texts_zh_cn.xlsx/main/row 216"
+      },
+      {
+        "id": "effect.bomb",
+        "text": "施加炸弹：倒计时 {duration}，全队爆发基础伤害 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 217"
+      },
+      {
+        "id": "effect.clear_status",
+        "text": "移除{status}。",
+        "_source": "texts_zh_cn.xlsx/main/row 218"
+      },
+      {
+        "id": "boss.iron_warden.summary",
+        "text": "留意重击读条；净化或护盾处理炸弹；半血强化，第 9 回合狂暴。",
+        "_source": "texts_zh_cn.xlsx/main/row 219"
+      },
+      {
+        "id": "relic.iron_rivet",
+        "text": "铆铁护符",
+        "_source": "texts_zh_cn.xlsx/main/row 220"
+      },
+      {
+        "id": "relic_desc.iron_rivet",
+        "text": "开战时，全体存活队员各获得 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 221"
+      },
+      {
+        "id": "relic.vanguard_banner",
+        "text": "先锋旗",
+        "_source": "texts_zh_cn.xlsx/main/row 222"
+      },
+      {
+        "id": "relic_desc.vanguard_banner",
+        "text": "开战时，每名坦克额外获得 {amount} 仇恨。",
+        "_source": "texts_zh_cn.xlsx/main/row 223"
+      },
+      {
+        "id": "relic.sentry_lens",
+        "text": "哨兵透镜",
+        "_source": "texts_zh_cn.xlsx/main/row 224"
+      },
+      {
+        "id": "relic_desc.sentry_lens",
+        "text": "每场第一回合基础抽牌后额外抽 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 225"
+      },
+      {
+        "id": "relic.quiet_incense",
+        "text": "安神熏香",
+        "_source": "texts_zh_cn.xlsx/main/row 226"
+      },
+      {
+        "id": "relic_desc.quiet_incense",
+        "text": "开战时，全体存活队员各获得 {amount} 层再生。",
+        "_source": "texts_zh_cn.xlsx/main/row 227"
+      },
+      {
+        "id": "relic.tank_buckle",
+        "text": "守卫扣环",
+        "_source": "texts_zh_cn.xlsx/main/row 228"
+      },
+      {
+        "id": "relic_desc.tank_buckle",
+        "text": "每名坦克每回合首张自我护盾牌，自己的护盾额外增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 229"
+      },
+      {
+        "id": "relic.assassin_seal",
+        "text": "锋刃印章",
+        "_source": "texts_zh_cn.xlsx/main/row 230"
+      },
+      {
+        "id": "relic_desc.assassin_seal",
+        "text": "每名刺客每回合首张单体直接伤害牌的第一段基础伤害增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 231"
+      },
+      {
+        "id": "relic.mercy_charm",
+        "text": "慈悲吊坠",
+        "_source": "texts_zh_cn.xlsx/main/row 232"
+      },
+      {
+        "id": "relic_desc.mercy_charm",
+        "text": "每名治疗每回合首张单体即时治疗牌的治疗量增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 233"
+      },
+      {
+        "id": "relic.purge_charm",
+        "text": "洁净珠",
+        "_source": "texts_zh_cn.xlsx/main/row 234"
+      },
+      {
+        "id": "relic_desc.purge_charm",
+        "text": "卡牌成功驱散后，目标获得 {amount} 护盾；每张牌每名目标最多一次。",
+        "_source": "texts_zh_cn.xlsx/main/row 235"
+      },
+      {
+        "id": "relic.shock_ring",
+        "text": "震荡指环",
+        "_source": "texts_zh_cn.xlsx/main/row 236"
+      },
+      {
+        "id": "relic_desc.shock_ring",
+        "text": "全队每回合第一次成功打断后，抽 {amount} 张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 237"
+      },
+      {
+        "id": "relic.medical_kit",
+        "text": "行军药箱",
+        "_source": "texts_zh_cn.xlsx/main/row 238"
+      },
+      {
+        "id": "relic_desc.medical_kit",
+        "text": "战斗胜利后、自动复活前，存活队员各恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 239"
+      },
+      {
+        "id": "relic.camp_kettle",
+        "text": "营火水壶",
+        "_source": "texts_zh_cn.xlsx/main/row 240"
+      },
+      {
+        "id": "relic_desc.camp_kettle",
+        "text": "营地休息的恢复比例额外增加 {percent} 个百分点。",
+        "_source": "texts_zh_cn.xlsx/main/row 241"
+      },
+      {
+        "id": "relic.weapon_stone",
+        "text": "磨刃石",
+        "_source": "texts_zh_cn.xlsx/main/row 242"
+      },
+      {
+        "id": "relic_desc.weapon_stone",
+        "text": "我方卡牌每段直接伤害的基础值增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 243"
+      },
+      {
+        "id": "relic.boss_furnace",
+        "text": "熔炉核心",
+        "_source": "texts_zh_cn.xlsx/main/row 244"
+      },
+      {
+        "id": "relic_desc.boss_furnace",
+        "text": "每回合基础能量增加 {energy}，基础抽牌数调整 {draw}。",
+        "_source": "texts_zh_cn.xlsx/main/row 245"
+      },
+      {
+        "id": "relic.boss_tome",
+        "text": "哨所密卷",
+        "_source": "texts_zh_cn.xlsx/main/row 246"
+      },
+      {
+        "id": "relic_desc.boss_tome",
+        "text": "每回合基础抽牌数增加 {amount}。",
+        "_source": "texts_zh_cn.xlsx/main/row 247"
+      },
+      {
+        "id": "relic.boss_aegis",
+        "text": "黑铁屏障",
+        "_source": "texts_zh_cn.xlsx/main/row 248"
+      },
+      {
+        "id": "relic_desc.boss_aegis",
+        "text": "每个我方回合清盾后，全体存活队员各获得 {amount} 护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 249"
+      },
+      {
+        "id": "event.event_abandoned_infirmary",
+        "text": "废弃医务室",
+        "_source": "texts_zh_cn.xlsx/main/row 250"
+      },
+      {
+        "id": "event_desc.event_abandoned_infirmary",
+        "text": "散落的药品尚能使用，也能换回一些路费。",
+        "_source": "texts_zh_cn.xlsx/main/row 251"
+      },
+      {
+        "id": "option.infirmary_treat",
+        "text": "使用药品",
+        "_source": "texts_zh_cn.xlsx/main/row 252"
+      },
+      {
+        "id": "option.infirmary_scavenge",
+        "text": "冒险搜寻",
+        "_source": "texts_zh_cn.xlsx/main/row 253"
+      },
+      {
+        "id": "option.infirmary_leave",
+        "text": "离开",
+        "_source": "texts_zh_cn.xlsx/main/row 254"
+      },
+      {
+        "id": "event.event_forgotten_anvil",
+        "text": "遗落铁砧",
+        "_source": "texts_zh_cn.xlsx/main/row 255"
+      },
+      {
+        "id": "event_desc.event_forgotten_anvil",
+        "text": "狱卒遗下的工具还能修补装备，也可以拆下材料换钱。",
+        "_source": "texts_zh_cn.xlsx/main/row 256"
+      },
+      {
+        "id": "option.anvil_reforge",
+        "text": "修整装备",
+        "_source": "texts_zh_cn.xlsx/main/row 257"
+      },
+      {
+        "id": "option.anvil_salvage",
+        "text": "拆解换钱",
+        "_source": "texts_zh_cn.xlsx/main/row 258"
+      },
+      {
+        "id": "option.anvil_leave",
+        "text": "离开",
+        "_source": "texts_zh_cn.xlsx/main/row 259"
+      },
+      {
+        "id": "event.event_sealed_cache",
+        "text": "封印补给箱",
+        "_source": "texts_zh_cn.xlsx/main/row 260"
+      },
+      {
+        "id": "event_desc.event_sealed_cache",
+        "text": "封印下藏着军需品，强行打开也可能触动伤人的机关。",
+        "_source": "texts_zh_cn.xlsx/main/row 261"
+      },
+      {
+        "id": "option.cache_force",
+        "text": "强行开启",
+        "_source": "texts_zh_cn.xlsx/main/row 262"
+      },
+      {
+        "id": "option.cache_unlock",
+        "text": "解除封印",
+        "_source": "texts_zh_cn.xlsx/main/row 263"
+      },
+      {
+        "id": "option.cache_leave",
+        "text": "离开",
+        "_source": "texts_zh_cn.xlsx/main/row 264"
+      },
+      {
+        "id": "chapter.one",
+        "text": "第一章：地牢哨所",
+        "_source": "texts_zh_cn.xlsx/main/row 265"
+      },
+      {
+        "id": "difficulty.1",
+        "text": "难度 1",
+        "_source": "texts_zh_cn.xlsx/main/row 266"
+      },
+      {
+        "id": "ui.chapter_title",
+        "text": "地牢哨所 · 第一章试玩",
+        "_source": "texts_zh_cn.xlsx/main/row 267"
+      },
+      {
+        "id": "ui.chapter_subtitle",
+        "text": "初始三人 · 难度 1 · 十节点冒险\n完成本章结束试玩，支持自动保存与继续。",
+        "_source": "texts_zh_cn.xlsx/main/row 268"
+      },
+      {
+        "id": "ui.continue_run",
+        "text": "继续冒险",
+        "_source": "texts_zh_cn.xlsx/main/row 269"
+      },
+      {
+        "id": "ui.continue_failed",
+        "text": "无法继续冒险，请检查存档提示。",
+        "_source": "texts_zh_cn.xlsx/main/row 270"
+      },
+      {
+        "id": "ui.return_menu",
+        "text": "保存并返回菜单",
+        "_source": "texts_zh_cn.xlsx/main/row 271"
+      },
+      {
+        "id": "ui.abandon",
+        "text": "放弃冒险",
+        "_source": "texts_zh_cn.xlsx/main/row 272"
+      },
+      {
+        "id": "ui.exit",
+        "text": "退出游戏",
+        "_source": "texts_zh_cn.xlsx/main/row 273"
+      },
+      {
+        "id": "ui.inspect",
+        "text": "牌组与遗物",
+        "_source": "texts_zh_cn.xlsx/main/row 274"
+      },
+      {
+        "id": "ui.relics",
+        "text": "本局遗物",
+        "_source": "texts_zh_cn.xlsx/main/row 275"
+      },
+      {
+        "id": "ui.replace_run_confirm",
+        "text": "已有未完成的冒险。确认放弃旧局并开始新局？永久解锁保留。",
+        "_source": "texts_zh_cn.xlsx/main/row 276"
+      },
+      {
+        "id": "ui.abandon_confirm",
+        "text": "确认放弃本次冒险？本局进度将结束，永久解锁保留。",
+        "_source": "texts_zh_cn.xlsx/main/row 277"
+      },
+      {
+        "id": "ui.save_failed",
+        "text": "存档暂时不可用：{reason}\n请重试后继续。",
+        "_source": "texts_zh_cn.xlsx/main/row 278"
+      },
+      {
+        "id": "ui.retry_save",
+        "text": "重试",
+        "_source": "texts_zh_cn.xlsx/main/row 279"
+      },
+      {
+        "id": "ui.run_header",
+        "text": "第一章 · 节点 {depth}/10　金币 {gold}",
+        "_source": "texts_zh_cn.xlsx/main/row 280"
+      },
+      {
+        "id": "ui.action_rejected",
+        "text": "本次操作未生效，请按当前页面重新选择。",
+        "_source": "texts_zh_cn.xlsx/main/row 281"
+      },
+      {
+        "id": "ui.result_trial",
+        "text": "第一章试玩完成",
+        "_source": "texts_zh_cn.xlsx/main/row 282"
+      },
+      {
+        "id": "ui.result_abandoned",
+        "text": "已放弃冒险",
+        "_source": "texts_zh_cn.xlsx/main/row 283"
+      },
+      {
+        "id": "ui.result_details",
+        "text": "难度 {difficulty}　到达节点 {depth}　用时 {elapsed}\n阵容：{party}",
+        "_source": "texts_zh_cn.xlsx/main/row 284"
+      },
+      {
+        "id": "ui.map_title",
+        "text": "地牢哨所 · 路线",
+        "_source": "texts_zh_cn.xlsx/main/row 285"
+      },
+      {
+        "id": "ui.map_hint",
+        "text": "沿连线选择下一节点。普通战、精英战和事件的具体内容将在进入后揭晓。",
+        "_source": "texts_zh_cn.xlsx/main/row 286"
+      },
+      {
+        "id": "ui.map_boss",
+        "text": "本章首领：{name}\n{description}",
+        "_source": "texts_zh_cn.xlsx/main/row 287"
+      },
+      {
+        "id": "ui.map_node",
+        "text": "{depth} · {kind}",
+        "_source": "texts_zh_cn.xlsx/main/row 288"
+      },
+      {
+        "id": "ui.map_status.current",
+        "text": "当前位置",
+        "_source": "texts_zh_cn.xlsx/main/row 289"
+      },
+      {
+        "id": "ui.map_status.visited",
+        "text": "已完成",
+        "_source": "texts_zh_cn.xlsx/main/row 290"
+      },
+      {
+        "id": "ui.map_status.unvisited",
+        "text": "未经过",
+        "_source": "texts_zh_cn.xlsx/main/row 291"
+      },
+      {
+        "id": "ui.node.battle",
+        "text": "普通战斗",
+        "_source": "texts_zh_cn.xlsx/main/row 292"
+      },
+      {
+        "id": "ui.node.elite",
+        "text": "精英战斗",
+        "_source": "texts_zh_cn.xlsx/main/row 293"
+      },
+      {
+        "id": "ui.node.camp",
+        "text": "营地",
+        "_source": "texts_zh_cn.xlsx/main/row 294"
+      },
+      {
+        "id": "ui.node.shop",
+        "text": "商店",
+        "_source": "texts_zh_cn.xlsx/main/row 295"
+      },
+      {
+        "id": "ui.node.event",
+        "text": "神秘事件",
+        "_source": "texts_zh_cn.xlsx/main/row 296"
+      },
+      {
+        "id": "ui.node.boss",
+        "text": "章节首领",
+        "_source": "texts_zh_cn.xlsx/main/row 297"
+      },
+      {
+        "id": "ui.camp_hint",
+        "text": "休息回血与升级一张卡牌，只能选择一项。",
+        "_source": "texts_zh_cn.xlsx/main/row 298"
+      },
+      {
+        "id": "ui.camp_recovery",
+        "text": "{name}：{hp}/{max_hp}，休息恢复 {amount} 点生命",
+        "_source": "texts_zh_cn.xlsx/main/row 299"
+      },
+      {
+        "id": "ui.camp_rest",
+        "text": "休息回血",
+        "_source": "texts_zh_cn.xlsx/main/row 300"
+      },
+      {
+        "id": "ui.camp_upgrade",
+        "text": "选择一张卡牌升级",
+        "_source": "texts_zh_cn.xlsx/main/row 301"
+      },
+      {
+        "id": "ui.choose_upgrade",
+        "text": "选择升级的卡牌副本",
+        "_source": "texts_zh_cn.xlsx/main/row 302"
+      },
+      {
+        "id": "ui.choose_remove",
+        "text": "选择永久移除的卡牌副本",
+        "_source": "texts_zh_cn.xlsx/main/row 303"
+      },
+      {
+        "id": "ui.choose_card_copy",
+        "text": "选择一张卡牌，查看确认信息。",
+        "_source": "texts_zh_cn.xlsx/main/row 304"
+      },
+      {
+        "id": "ui.upgrade_compare",
+        "text": "升级前\n{before}\n\n升级后\n{after}",
+        "_source": "texts_zh_cn.xlsx/main/row 305"
+      },
+      {
+        "id": "ui.remove_confirm",
+        "text": "花费 {cost} 金币，永久移除这一张：\n{card}",
+        "_source": "texts_zh_cn.xlsx/main/row 306"
+      },
+      {
+        "id": "ui.shop_hint",
+        "text": "当前金币：{gold}。购买后该位置售罄；刷新重新生成全部商品。",
+        "_source": "texts_zh_cn.xlsx/main/row 307"
+      },
+      {
+        "id": "ui.shop_offer",
+        "text": "{name}　{price} 金币\n{description}",
+        "_source": "texts_zh_cn.xlsx/main/row 308"
+      },
+      {
+        "id": "ui.sold_out",
+        "text": "已售罄",
+        "_source": "texts_zh_cn.xlsx/main/row 309"
+      },
+      {
+        "id": "ui.out_of_stock",
+        "text": "暂无商品",
+        "_source": "texts_zh_cn.xlsx/main/row 310"
+      },
+      {
+        "id": "ui.not_enough_gold",
+        "text": "金币不足",
+        "_source": "texts_zh_cn.xlsx/main/row 311"
+      },
+      {
+        "id": "ui.shop_refresh",
+        "text": "刷新商品 · {cost} 金币",
+        "_source": "texts_zh_cn.xlsx/main/row 312"
+      },
+      {
+        "id": "ui.shop_remove",
+        "text": "删除一张卡牌 · {cost} 金币",
+        "_source": "texts_zh_cn.xlsx/main/row 313"
+      },
+      {
+        "id": "ui.leave_shop",
+        "text": "离开商店",
+        "_source": "texts_zh_cn.xlsx/main/row 314"
+      },
+      {
+        "id": "ui.reward_gold",
+        "text": "已获得 {gold} 金币。卡牌与遗物可分别领取或跳过。",
+        "_source": "texts_zh_cn.xlsx/main/row 315"
+      },
+      {
+        "id": "ui.reward_cards",
+        "text": "选择一张卡牌",
+        "_source": "texts_zh_cn.xlsx/main/row 316"
+      },
+      {
+        "id": "ui.reward_cards_done",
+        "text": "卡牌奖励已处理",
+        "_source": "texts_zh_cn.xlsx/main/row 317"
+      },
+      {
+        "id": "ui.reward_relics",
+        "text": "选择一件遗物",
+        "_source": "texts_zh_cn.xlsx/main/row 318"
+      },
+      {
+        "id": "ui.reward_relics_done",
+        "text": "遗物奖励已处理",
+        "_source": "texts_zh_cn.xlsx/main/row 319"
+      },
+      {
+        "id": "ui.skip_relic",
+        "text": "跳过遗物",
+        "_source": "texts_zh_cn.xlsx/main/row 320"
+      },
+      {
+        "id": "ui.event_choose_target",
+        "text": "选择本次事件的目标",
+        "_source": "texts_zh_cn.xlsx/main/row 321"
+      },
+      {
+        "id": "ui.event_confirm",
+        "text": "确认事件选择",
+        "_source": "texts_zh_cn.xlsx/main/row 322"
+      },
+      {
+        "id": "ui.event_selection_hint",
+        "text": "选择目标，核对实际代价与效果后确认。",
+        "_source": "texts_zh_cn.xlsx/main/row 323"
+      },
+      {
+        "id": "ui.confirm_scope",
+        "text": "已显示作用范围。点击施放确认。",
+        "_source": "texts_zh_cn.xlsx/main/row 324"
+      },
+      {
+        "id": "ui.intent_targets",
+        "text": "目标：{targets}",
+        "_source": "texts_zh_cn.xlsx/main/row 325"
+      },
+      {
+        "id": "ui.boss_phase",
+        "text": "阶段 {phase}",
+        "_source": "texts_zh_cn.xlsx/main/row 326"
+      },
+      {
+        "id": "ui.enrage_turn",
+        "text": "第 {turn} 回合进入狂暴",
+        "_source": "texts_zh_cn.xlsx/main/row 327"
+      },
+      {
+        "id": "ui.bomb_remaining",
+        "text": "炸弹 · 剩余 {remaining} 次",
+        "_source": "texts_zh_cn.xlsx/main/row 328"
+      },
+      {
+        "id": "ui.recovered_backup",
+        "text": "已从最近有效的备份恢复冒险。",
+        "_source": "texts_zh_cn.xlsx/main/row 329"
+      },
+      {
+        "id": "save.invalid_save_slot",
+        "text": "存档位置无效",
+        "_source": "texts_zh_cn.xlsx/main/row 330"
+      },
+      {
+        "id": "save.save_corrupt_or_incompatible",
+        "text": "存档损坏或版本不兼容",
+        "_source": "texts_zh_cn.xlsx/main/row 331"
+      },
+      {
+        "id": "save.cannot_create_save_directory",
+        "text": "无法创建存档目录",
+        "_source": "texts_zh_cn.xlsx/main/row 332"
+      },
+      {
+        "id": "save.temporary_save_verification_failed",
+        "text": "新存档校验失败，已保留原存档",
+        "_source": "texts_zh_cn.xlsx/main/row 333"
+      },
+      {
+        "id": "save.backup_verification_failed",
+        "text": "备份校验失败，已保留原存档",
+        "_source": "texts_zh_cn.xlsx/main/row 334"
+      },
+      {
+        "id": "save.backup_replace_failed",
+        "text": "无法更新存档备份",
+        "_source": "texts_zh_cn.xlsx/main/row 335"
+      },
+      {
+        "id": "save.save_replace_failed",
+        "text": "无法替换原存档",
+        "_source": "texts_zh_cn.xlsx/main/row 336"
+      },
+      {
+        "id": "save.save_open_failed",
+        "text": "无法打开存档文件进行写入",
+        "_source": "texts_zh_cn.xlsx/main/row 337"
+      },
+      {
+        "id": "save.save_write_failed",
+        "text": "存档写入失败",
+        "_source": "texts_zh_cn.xlsx/main/row 338"
+      },
+      {
+        "id": "ui.discard_bad_run",
+        "text": "放弃此存档并新开冒险",
+        "_source": "texts_zh_cn.xlsx/main/row 339"
+      },
+      {
+        "id": "ui.enraged",
+        "text": "已进入狂暴",
+        "_source": "texts_zh_cn.xlsx/main/row 340"
+      },
+      {
+        "id": "ui.revive_quota",
+        "text": "本场复活：已使用 {used}/{limit} 次",
+        "_source": "texts_zh_cn.xlsx/main/row 341"
+      },
+      {
+        "id": "ui.bomb_snapshot",
+        "text": "炸弹剩余 {remaining} 次，基础爆发伤害 {amount}；各受击者再计算自身增减伤。",
+        "_source": "texts_zh_cn.xlsx/main/row 342"
+      },
+      {
+        "id": "error.node",
+        "text": "只能沿当前连线选择下一节点。",
+        "_source": "texts_zh_cn.xlsx/main/row 343"
+      },
+      {
+        "id": "error.token",
+        "text": "当前页面已更新，请重新选择。",
+        "_source": "texts_zh_cn.xlsx/main/row 344"
+      },
+      {
+        "id": "error.upgraded",
+        "text": "请选择一张尚未升级的卡牌副本。",
+        "_source": "texts_zh_cn.xlsx/main/row 345"
+      },
+      {
+        "id": "error.gold",
+        "text": "金币不足。",
+        "_source": "texts_zh_cn.xlsx/main/row 346"
+      },
+      {
+        "id": "error.sold_out",
+        "text": "该商品已经售罄。",
+        "_source": "texts_zh_cn.xlsx/main/row 347"
+      },
+      {
+        "id": "error.selection",
+        "text": "请选择一个符合条件的目标。",
+        "_source": "texts_zh_cn.xlsx/main/row 348"
+      },
+      {
+        "id": "error.empty_pool",
+        "text": "当前没有可获得的遗物。",
+        "_source": "texts_zh_cn.xlsx/main/row 349"
+      },
+      {
+        "id": "error.load",
+        "text": "存档读取失败，未覆盖原存档。",
+        "_source": "texts_zh_cn.xlsx/main/row 350"
+      },
+      {
+        "id": "error.active_run",
+        "text": "已有未完成的冒险，请先继续或确认放弃。",
+        "_source": "texts_zh_cn.xlsx/main/row 351"
+      },
+      {
+        "id": "error.save",
+        "text": "进度保存失败，操作已暂停，请重试保存。",
+        "_source": "texts_zh_cn.xlsx/main/row 352"
+      },
+      {
+        "id": "run.hero_cost",
+        "text": "{name}：当前生命 {hp}，最多失去 {cost}，剩余至少 {after}。",
+        "_source": "texts_zh_cn.xlsx/main/row 353"
+      },
+      {
+        "id": "run.upgrade_compare",
+        "text": "升级前：\n{before}\n\n升级后：\n{after}",
+        "_source": "texts_zh_cn.xlsx/main/row 354"
+      },
+      {
+        "id": "run.gold_cost",
+        "text": "支付 {amount} 金币。",
+        "_source": "texts_zh_cn.xlsx/main/row 355"
+      },
+      {
+        "id": "run.hp_cost",
+        "text": "选择的队员失去 {amount} 生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 356"
+      },
+      {
+        "id": "run.event.gold",
+        "text": "获得 {amount} 金币",
+        "_source": "texts_zh_cn.xlsx/main/row 357"
+      },
+      {
+        "id": "run.event.heal",
+        "text": "恢复最多 {amount} 生命（不超过各自上限）",
+        "_source": "texts_zh_cn.xlsx/main/row 358"
+      },
+      {
+        "id": "run.event.heal_unit",
+        "text": "{name} 恢复 {amount} 生命",
+        "_source": "texts_zh_cn.xlsx/main/row 359"
+      },
+      {
+        "id": "run.event.hp_loss",
+        "text": "选择的队员失去 {amount} 生命",
+        "_source": "texts_zh_cn.xlsx/main/row 360"
+      },
+      {
+        "id": "run.event.upgrade",
+        "text": "升级选择的卡牌副本",
+        "_source": "texts_zh_cn.xlsx/main/row 361"
+      },
+      {
+        "id": "run.event.remove",
+        "text": "永久移除选择的卡牌副本",
+        "_source": "texts_zh_cn.xlsx/main/row 362"
+      },
+      {
+        "id": "run.event.grant_relic",
+        "text": "获得一件阵容可用且尚未持有的普通遗物",
+        "_source": "texts_zh_cn.xlsx/main/row 363"
+      },
+      {
+        "id": "run.event.leave",
+        "text": "无额外效果",
+        "_source": "texts_zh_cn.xlsx/main/row 364"
+      },
+      {
+        "id": "run.probability",
+        "text": "{percent}%：{effects}",
+        "_source": "texts_zh_cn.xlsx/main/row 365"
+      },
+      {
+        "id": "chapter.boss_description",
+        "text": "黑铁典狱长：打断重击，净化炸弹；半血转阶段，第9回合狂暴。",
+        "_source": "texts_zh_cn.xlsx/main/row 366"
       }
     ]
   },
-  "bundle_id": "6ae40c7cb829a765207994ae4bb75e5cb830842bd19c88e7924b99d12daeeb93"
+  "bundle_id": "7bb4ef54fab40521417379bfa38591028d105fce96801d8762de9d6de5cc662a"
 }

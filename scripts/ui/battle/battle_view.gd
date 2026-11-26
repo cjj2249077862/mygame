@@ -14,6 +14,7 @@ var pending_target := ""
 var hovered_target := ""
 var chosen_status := ""
 var locked := false
+var externally_blocked := false
 var _generation := 0
 var _active := false
 
@@ -88,6 +89,16 @@ func leave_battle() -> void:
 	clear_selection()
 
 
+func set_external_blocked(blocked: bool) -> void:
+	if externally_blocked == blocked:
+		return
+	externally_blocked = blocked
+	if blocked:
+		clear_selection()
+	elif _active:
+		refresh()
+
+
 func refresh() -> void:
 	if engine == null or not engine.state.has("hand"):
 		return
@@ -122,14 +133,25 @@ func refresh() -> void:
 			var unit: Dictionary = pair[0][i]
 			var view = container.get_child(i)
 			var highlighted: bool = false
-			if not locked and selected_copy >= 0:
+			if not locked and not externally_blocked and selected_copy >= 0:
 				if selected_caster == "":
 					highlighted = _caster_is_legal(unit.id)
 				else:
 					highlighted = _target_is_legal(unit.id)
+					var selected_card: Dictionary = engine.find_card(selected_copy)
+					if (
+						not selected_card.is_empty()
+						and data.definition("cards", selected_card.card_id).target == "none"
+					):
+						highlighted = (
+							unit.id
+							in engine.action_targets(
+								selected_copy, selected_caster, selected_caster
+							)
+						)
 			view.render(unit, data, engine, highlighted, unit.id == selected_caster)
-	hand.render(state.hand, data, engine, locked, selected_copy)
-	end_button.disabled = locked or state.phase != Types.BattlePhase.PLAYER
+	hand.render(state.hand, data, engine, locked or externally_blocked, selected_copy)
+	end_button.disabled = locked or externally_blocked or state.phase != Types.BattlePhase.PLAYER
 	cast_button.visible = (
 		selected_copy >= 0
 		and selected_caster != ""
@@ -137,10 +159,10 @@ func refresh() -> void:
 			data.definition("cards", engine.find_card(selected_copy).get("card_id", "")).get(
 				"target"
 			)
-			== "self"
+			in ["self", "none"]
 		)
 	)
-	cast_button.disabled = locked
+	cast_button.disabled = locked or externally_blocked
 	queue_redraw()
 
 
@@ -178,7 +200,7 @@ func _on_settled(records: Array, _snapshot: Dictionary) -> void:
 
 
 func _on_card_selected(copy_id: int) -> void:
-	if locked or not _active:
+	if locked or externally_blocked or not _active:
 		return
 	clear_selection()
 	selected_copy = copy_id
@@ -189,19 +211,25 @@ func _on_card_selected(copy_id: int) -> void:
 	hint.text = data.text("ui.select_caster" if selected_caster == "" else "ui.select_target")
 	refresh()
 	if cast_button.visible:
-		hint.text = data.text("ui.confirm_self")
+		hint.text = _cast_hint()
 
 
 func _on_unit_selected(id: String) -> void:
-	if locked or not _active or selected_copy < 0:
+	if locked or externally_blocked or not _active or selected_copy < 0:
 		return
 	if selected_caster == "":
 		if _caster_is_legal(id):
 			selected_caster = id
 			refresh()
-			hint.text = data.text("ui.confirm_self" if cast_button.visible else "ui.select_target")
+			hint.text = _cast_hint() if cast_button.visible else data.text("ui.select_target")
 		return
 	if cast_button.visible:
+		return
+	_confirm_target(id)
+
+
+func _confirm_target(id: String) -> void:
+	if locked or externally_blocked or not _active or selected_copy < 0 or selected_caster == "":
 		return
 	var error: String = engine.validate_play(selected_copy, selected_caster, id)
 	if error != "" and error != "error.dispel":
@@ -222,7 +250,7 @@ func _on_unit_selected(id: String) -> void:
 
 
 func _on_unit_hovered(id: String) -> void:
-	if locked or not _active or selected_copy < 0 or selected_caster == "":
+	if locked or externally_blocked or not _active or selected_copy < 0 or selected_caster == "":
 		return
 	hovered_target = id if _target_is_legal(id) else ""
 	_show_preview(id, _preview_status(id))
@@ -259,7 +287,13 @@ func _show_preview(id: String, status: String = "") -> void:
 
 
 func _on_cast_pressed() -> void:
-	_play(selected_caster)
+	_confirm_target(selected_caster)
+
+
+func _cast_hint() -> String:
+	var copy: Dictionary = engine.find_card(selected_copy)
+	var scope: String = str(data.definition("cards", copy.card_id).target)
+	return data.text("ui.confirm_scope" if scope == "none" else "ui.confirm_self")
 
 
 func _on_cast_hovered() -> void:
@@ -279,7 +313,7 @@ func _on_dispel_selected(index: int) -> void:
 
 
 func _play(target_id: String, status: String = "") -> void:
-	if locked or not _active or selected_copy < 0:
+	if locked or externally_blocked or not _active or selected_copy < 0:
 		return
 	var error: String = engine.play_card(selected_copy, selected_caster, target_id, status)
 	if error != "":
@@ -287,7 +321,7 @@ func _play(target_id: String, status: String = "") -> void:
 
 
 func _on_end_pressed() -> void:
-	if locked or not _active:
+	if locked or externally_blocked or not _active:
 		return
 	clear_selection()
 	if engine.has_playable_card():
@@ -297,7 +331,7 @@ func _on_end_pressed() -> void:
 
 
 func _end_turn() -> void:
-	if not locked and _active:
+	if not locked and not externally_blocked and _active:
 		clear_selection()
 		engine.end_turn()
 
@@ -394,24 +428,33 @@ func _draw() -> void:
 		for view in container.get_children():
 			views[view.unit_id] = view
 	for enemy in engine.state.enemies:
-		if (
-			enemy.hp > 0
-			and not enemy.interrupted
-			and views.has(enemy.id)
-			and views.has(enemy.target_id)
-		):
-			var start: Vector2 = views[enemy.id].get_global_rect().get_center() - global_position
-			var finish: Vector2 = (
-				views[enemy.target_id].get_global_rect().get_center() - global_position
-			)
-			draw_line(start, finish, get_theme_color("intent_line", "BattleView"), 2)
+		if enemy.hp > 0 and not enemy.interrupted and views.has(enemy.id):
+			var intent: Dictionary = engine.intent_preview(enemy.id)
+			for destination in intent.target_ids:
+				_draw_target_line(views, enemy.id, str(destination), "intent_line", 2)
+	if not locked and not externally_blocked and selected_copy >= 0 and selected_caster != "":
+		var copy: Dictionary = engine.find_card(selected_copy)
+		if not copy.is_empty() and data.definition("cards", copy.card_id).target == "none":
+			for destination in engine.action_targets(
+				selected_copy, selected_caster, selected_caster
+			):
+				_draw_target_line(views, selected_caster, str(destination), "target_line", 3)
 	var target_id: String = pending_target if pending_target != "" else hovered_target
 	if (
 		not locked
+		and not externally_blocked
 		and _target_is_legal(target_id)
 		and views.has(selected_caster)
 		and views.has(target_id)
 	):
-		var start: Vector2 = views[selected_caster].get_global_rect().get_center() - global_position
-		var finish: Vector2 = views[target_id].get_global_rect().get_center() - global_position
-		draw_line(start, finish, get_theme_color("target_line", "BattleView"), 3)
+		_draw_target_line(views, selected_caster, target_id, "target_line", 3)
+
+
+func _draw_target_line(
+	views: Dictionary, source_id: String, target_id: String, color_key: String, width: float
+) -> void:
+	if source_id == target_id or not views.has(source_id) or not views.has(target_id):
+		return
+	var start: Vector2 = views[source_id].get_global_rect().get_center() - global_position
+	var finish: Vector2 = views[target_id].get_global_rect().get_center() - global_position
+	draw_line(start, finish, get_theme_color(color_key, "BattleView"), width)

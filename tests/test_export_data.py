@@ -29,8 +29,66 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(sum(row['count'] for row in starters), 15)
         for hero in ('warden', 'blade', 'mender'):
             self.assertEqual(sum(r['count'] for r in starters if r['character_id'] == hero), 5)
-        self.assertEqual(len(self.books['cards']['sheets']['main']), 9)
+        self.assertEqual(len(self.books['cards']['sheets']['main']), 40)
         EXPORT.validate(self.books)
+
+    def test_chapter_content_and_initial_lineup_coverage(self):
+        cards=self.books['cards']['sheets']['main']
+        heroes=self.books['characters']['sheets']['main']
+        self.assertEqual(sum(bool(c['role']) for c in cards),18)
+        self.assertEqual(sum(bool(c['owner']) for c in cards),18)
+        self.assertEqual(sum(not c['owner'] and not c['role'] for c in cards),4)
+        for card in cards:
+            self.assertTrue(any((not card['owner'] or card['owner']==h['id']) and (not card['role'] or card['role']==h['role']) for h in heroes),card['id'])
+        relics=self.books['relics']['sheets']['main']
+        self.assertEqual(len(relics),15)
+        self.assertEqual(sum(r['pool']=='boss' for r in relics),3)
+        enemies=self.books['encounters']['sheets']['enemies']
+        self.assertEqual(sum(e['kind']!='boss' for e in enemies),10)
+        self.assertEqual(sum(e['kind']=='boss' for e in enemies),1)
+        self.assertEqual(len(self.books['events']['sheets']['main']),3)
+        self.assertEqual(len(EXPORT.BOOKS),10)
+
+    def test_phase_two_invalid_references_and_semantics(self):
+        mutations=[
+            ('revive ratio',lambda b: next(e for e in b['cards']['sheets']['effects'] if e['kind']=='revive').update(amount=1.1)),
+            ('energy target',lambda b: next(e for e in b['cards']['sheets']['effects'] if e['kind']=='energy').update(target='selected')),
+            ('unknown status',lambda b: next(e for e in b['cards']['sheets']['effects'] if e['kind']=='apply_status').update(status='missing')),
+            ('relic event',lambda b:b['relics']['sheets']['triggers'][0].update(event='missing')),
+            ('relic counter',lambda b:b['relics']['sheets']['triggers'][0].update(limit_count=0)),
+            ('relic owner',lambda b:b['relics']['sheets']['main'][0].update(owner='missing')),
+            ('relic group',lambda b:b['relics']['sheets']['triggers'][0].update(effect_group='missing')),
+            ('phase ratio',lambda b:b['encounters']['sheets']['phases'][0].update(threshold=1)),
+            ('phase pool',lambda b:b['encounters']['sheets']['phases'][0].update(intent_pool='missing')),
+            ('bomb countdown',lambda b:next(e for e in b['encounters']['sheets']['effects'] if e['kind']=='bomb').update(duration=0)),
+            ('intent target',lambda b:b['encounters']['sheets']['intents'][0].update(target_rule='random_unlisted')),
+            ('negative gold',lambda b:b['economy']['sheets']['card_prices'][0].update(price=-1)),
+            ('missing weight',lambda b:b['economy']['sheets']['weights'].pop()),
+            ('wrong map boss',lambda b:b['maps']['sheets']['main'][0].update(boss_encounter_id='outpost_gate')),
+            ('map pool',lambda b:b['maps']['sheets']['pools'][0].update(content_id='missing')),
+            ('map layer range',lambda b:b['maps']['sheets']['node_rules'][0].update(max_depth=10)),
+            ('event outcome',lambda b:b['events']['sheets']['outcomes'][0].update(option_id='missing')),
+            ('zero probability',lambda b:b['events']['sheets']['outcomes'][0].update(weight=0)),
+            ('paid leave',lambda b:next(o for o in b['events']['sheets']['options'] if o['leave']).update(cost_gold=1)),
+            ('lethal cost',lambda b:next(o for o in b['events']['sheets']['options'] if o['cost_hp']).update(min_hp=6)),
+            ('lethal random cost',lambda b:next(o for o in b['events']['sheets']['options'] if o['id']=='cache_force').update(min_hp=8)),
+            ('unchecked relic pool',lambda b:next(o for o in b['events']['sheets']['options'] if o['id']=='cache_force').update(required_relic_pool='')),
+            ('event target',lambda b:b['events']['sheets']['effects'][0].update(target='enemy')),
+            ('nonfinite price',lambda b:b['economy']['sheets']['card_prices'][0].update(price=float('nan'))),
+            ('missing actor context',lambda b:b['relics']['sheets']['triggers'][0].update(limit_scope='actor_turn')),
+            ('missing target context',lambda b:b['relics']['sheets']['effects'][0].update(target='event_target')),
+            ('wrong modifier notification',lambda b:next(t for t in b['relics']['sheets']['triggers'] if t['relic_id']=='weapon_stone').update(event='turn_started')),
+            ('negative final base draw',lambda b:next(e for e in b['relics']['sheets']['effects'] if e['kind']=='base_draw' and e['amount']<0).update(amount=-99)),
+            ('zero source weights',lambda b:[w.update(weight=0) for w in b['economy']['sheets']['weights'] if w['kind']=='card' and w['source']=='battle']),
+            ('missing depth candidates',lambda b:[e.update(min_depth=3) for e in b['encounters']['sheets']['main'] if e['kind']=='normal' and e['id']!='outpost_gate']),
+            ('missing safe route candidates',lambda b:b['maps']['sheets'].update(node_rules=[r for r in b['maps']['sheets']['node_rules'] if r['kind']=='elite'])),
+            ('duplicate map content',lambda b:b['maps']['sheets']['pools'].append(dict(b['maps']['sheets']['pools'][0],id='duplicate_pool_fixture'))),
+            ('combined branch life cost',lambda b:b['events']['sheets']['effects'].append(dict(next(e for e in b['events']['sheets']['effects'] if e['kind']=='hp_loss'),id='additional_life_cost_fixture',order=3))),
+        ]
+        for label,mutate in mutations:
+            with self.subTest(label=label):
+                bad=deepcopy(self.books);mutate(bad)
+                with self.assertRaises(ValueError):EXPORT.validate(bad)
 
     def test_invalid_definitions(self):
         mutations = [

@@ -2,7 +2,7 @@
 [ext_resource type="Script" path="res://scripts/ui/battle/unit_view.gd" id="1"]
 
 [node name="UnitView" type="Button"]
-custom_minimum_size = Vector2(165, 360)
+custom_minimum_size = Vector2(145, 300)
 size_flags_horizontal = 3
 toggle_mode = true
 script = ExtResource("1")
@@ -19,7 +19,7 @@ offset_bottom = -10.0
 mouse_filter = 2
 
 [node name="Portrait" type="TextureRect" parent="Content"]
-custom_minimum_size = Vector2(0, 150)
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1

@@ -1,0 +1,170 @@
+{
+  "version": 2,
+  "sheets": {
+    "main": [
+      {
+        "id": "chapter_one",
+        "name_key": "chapter.one",
+        "boss_encounter_id": "outpost_iron_throne",
+        "first_encounter_id": "outpost_gate",
+        "node_count": 10,
+        "width": 3,
+        "_source": "maps.xlsx/main/row 2"
+      }
+    ],
+    "node_rules": [
+      {
+        "id": "chapter_one.battle",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "weight": 45,
+        "min_depth": 2,
+        "max_depth": 8,
+        "_source": "maps.xlsx/node_rules/row 2"
+      },
+      {
+        "id": "chapter_one.elite",
+        "map_id": "chapter_one",
+        "kind": "elite",
+        "weight": 15,
+        "min_depth": 4,
+        "max_depth": 8,
+        "_source": "maps.xlsx/node_rules/row 3"
+      },
+      {
+        "id": "chapter_one.event",
+        "map_id": "chapter_one",
+        "kind": "event",
+        "weight": 20,
+        "min_depth": 2,
+        "max_depth": 8,
+        "_source": "maps.xlsx/node_rules/row 4"
+      },
+      {
+        "id": "chapter_one.shop",
+        "map_id": "chapter_one",
+        "kind": "shop",
+        "weight": 10,
+        "min_depth": 2,
+        "max_depth": 8,
+        "_source": "maps.xlsx/node_rules/row 5"
+      },
+      {
+        "id": "chapter_one.camp",
+        "map_id": "chapter_one",
+        "kind": "camp",
+        "weight": 10,
+        "min_depth": 2,
+        "max_depth": 8,
+        "_source": "maps.xlsx/node_rules/row 6"
+      }
+    ],
+    "pools": [
+      {
+        "id": "chapter_one.outpost_patrol",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_patrol",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 2"
+      },
+      {
+        "id": "chapter_one.outpost_hall",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_hall",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 3"
+      },
+      {
+        "id": "chapter_one.outpost_bolts",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_bolts",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 4"
+      },
+      {
+        "id": "chapter_one.outpost_brazier",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_brazier",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 5"
+      },
+      {
+        "id": "chapter_one.outpost_guardroom",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_guardroom",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 6"
+      },
+      {
+        "id": "chapter_one.outpost_hexcell",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_hexcell",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 7"
+      },
+      {
+        "id": "chapter_one.outpost_crossfire",
+        "map_id": "chapter_one",
+        "kind": "battle",
+        "content_id": "outpost_crossfire",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 8"
+      },
+      {
+        "id": "chapter_one.outpost_trial",
+        "map_id": "chapter_one",
+        "kind": "elite",
+        "content_id": "outpost_trial",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 9"
+      },
+      {
+        "id": "chapter_one.outpost_lockdown",
+        "map_id": "chapter_one",
+        "kind": "elite",
+        "content_id": "outpost_lockdown",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 10"
+      },
+      {
+        "id": "chapter_one.outpost_laboratory",
+        "map_id": "chapter_one",
+        "kind": "elite",
+        "content_id": "outpost_laboratory",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 11"
+      },
+      {
+        "id": "chapter_one.event_abandoned_infirmary",
+        "map_id": "chapter_one",
+        "kind": "event",
+        "content_id": "event_abandoned_infirmary",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 12"
+      },
+      {
+        "id": "chapter_one.event_forgotten_anvil",
+        "map_id": "chapter_one",
+        "kind": "event",
+        "content_id": "event_forgotten_anvil",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 13"
+      },
+      {
+        "id": "chapter_one.event_sealed_cache",
+        "map_id": "chapter_one",
+        "kind": "event",
+        "content_id": "event_sealed_cache",
+        "weight": 1,
+        "_source": "maps.xlsx/pools/row 14"
+      }
+    ]
+  },
+  "bundle_id": "7bb4ef54fab40521417379bfa38591028d105fce96801d8762de9d6de5cc662a"
+}

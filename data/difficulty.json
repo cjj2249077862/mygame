@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "sheets": {
+    "main": [
+      {
+        "id": "difficulty_1",
+        "name_key": "difficulty.1",
+        "enabled": true,
+        "_source": "difficulty.xlsx/main/row 2"
+      }
+    ],
+    "modifiers": []
+  },
+  "bundle_id": "7bb4ef54fab40521417379bfa38591028d105fce96801d8762de9d6de5cc662a"
+}

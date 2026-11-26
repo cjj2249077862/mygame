@@ -1,0 +1,292 @@
+{
+  "version": 2,
+  "sheets": {
+    "main": [
+      {
+        "id": "camp_heal_ratio",
+        "value": 0.3,
+        "_source": "economy.xlsx/main/row 2"
+      },
+      {
+        "id": "shop_card_slots",
+        "value": 4,
+        "_source": "economy.xlsx/main/row 3"
+      },
+      {
+        "id": "shop_relic_slots",
+        "value": 2,
+        "_source": "economy.xlsx/main/row 4"
+      },
+      {
+        "id": "refresh_base",
+        "value": 20,
+        "_source": "economy.xlsx/main/row 5"
+      },
+      {
+        "id": "refresh_step",
+        "value": 10,
+        "_source": "economy.xlsx/main/row 6"
+      },
+      {
+        "id": "remove_base",
+        "value": 40,
+        "_source": "economy.xlsx/main/row 7"
+      },
+      {
+        "id": "remove_step",
+        "value": 20,
+        "_source": "economy.xlsx/main/row 8"
+      },
+      {
+        "id": "recent_run_limit",
+        "value": 20,
+        "_source": "economy.xlsx/main/row 9"
+      },
+      {
+        "id": "boss_relic_choices",
+        "value": 3,
+        "_source": "economy.xlsx/main/row 10"
+      },
+      {
+        "id": "elite_relic_choices",
+        "value": 1,
+        "_source": "economy.xlsx/main/row 11"
+      }
+    ],
+    "card_prices": [
+      {
+        "id": "common",
+        "rarity": "common",
+        "price": 35,
+        "_source": "economy.xlsx/card_prices/row 2"
+      },
+      {
+        "id": "rare",
+        "rarity": "rare",
+        "price": 55,
+        "_source": "economy.xlsx/card_prices/row 3"
+      },
+      {
+        "id": "epic",
+        "rarity": "epic",
+        "price": 85,
+        "_source": "economy.xlsx/card_prices/row 4"
+      }
+    ],
+    "relic_prices": [
+      {
+        "id": "common",
+        "rarity": "common",
+        "price": 95,
+        "_source": "economy.xlsx/relic_prices/row 2"
+      },
+      {
+        "id": "rare",
+        "rarity": "rare",
+        "price": 95,
+        "_source": "economy.xlsx/relic_prices/row 3"
+      },
+      {
+        "id": "epic",
+        "rarity": "epic",
+        "price": 95,
+        "_source": "economy.xlsx/relic_prices/row 4"
+      }
+    ],
+    "weights": [
+      {
+        "id": "card.battle.common",
+        "kind": "card",
+        "source": "battle",
+        "rarity": "common",
+        "weight": 70,
+        "_source": "economy.xlsx/weights/row 2"
+      },
+      {
+        "id": "card.battle.rare",
+        "kind": "card",
+        "source": "battle",
+        "rarity": "rare",
+        "weight": 25,
+        "_source": "economy.xlsx/weights/row 3"
+      },
+      {
+        "id": "card.battle.epic",
+        "kind": "card",
+        "source": "battle",
+        "rarity": "epic",
+        "weight": 5,
+        "_source": "economy.xlsx/weights/row 4"
+      },
+      {
+        "id": "relic.battle.common",
+        "kind": "relic",
+        "source": "battle",
+        "rarity": "common",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 5"
+      },
+      {
+        "id": "relic.battle.rare",
+        "kind": "relic",
+        "source": "battle",
+        "rarity": "rare",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 6"
+      },
+      {
+        "id": "relic.battle.epic",
+        "kind": "relic",
+        "source": "battle",
+        "rarity": "epic",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 7"
+      },
+      {
+        "id": "card.elite.common",
+        "kind": "card",
+        "source": "elite",
+        "rarity": "common",
+        "weight": 45,
+        "_source": "economy.xlsx/weights/row 8"
+      },
+      {
+        "id": "card.elite.rare",
+        "kind": "card",
+        "source": "elite",
+        "rarity": "rare",
+        "weight": 40,
+        "_source": "economy.xlsx/weights/row 9"
+      },
+      {
+        "id": "card.elite.epic",
+        "kind": "card",
+        "source": "elite",
+        "rarity": "epic",
+        "weight": 15,
+        "_source": "economy.xlsx/weights/row 10"
+      },
+      {
+        "id": "relic.elite.common",
+        "kind": "relic",
+        "source": "elite",
+        "rarity": "common",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 11"
+      },
+      {
+        "id": "relic.elite.rare",
+        "kind": "relic",
+        "source": "elite",
+        "rarity": "rare",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 12"
+      },
+      {
+        "id": "relic.elite.epic",
+        "kind": "relic",
+        "source": "elite",
+        "rarity": "epic",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 13"
+      },
+      {
+        "id": "card.boss.common",
+        "kind": "card",
+        "source": "boss",
+        "rarity": "common",
+        "weight": 25,
+        "_source": "economy.xlsx/weights/row 14"
+      },
+      {
+        "id": "card.boss.rare",
+        "kind": "card",
+        "source": "boss",
+        "rarity": "rare",
+        "weight": 45,
+        "_source": "economy.xlsx/weights/row 15"
+      },
+      {
+        "id": "card.boss.epic",
+        "kind": "card",
+        "source": "boss",
+        "rarity": "epic",
+        "weight": 30,
+        "_source": "economy.xlsx/weights/row 16"
+      },
+      {
+        "id": "relic.boss.common",
+        "kind": "relic",
+        "source": "boss",
+        "rarity": "common",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 17"
+      },
+      {
+        "id": "relic.boss.rare",
+        "kind": "relic",
+        "source": "boss",
+        "rarity": "rare",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 18"
+      },
+      {
+        "id": "relic.boss.epic",
+        "kind": "relic",
+        "source": "boss",
+        "rarity": "epic",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 19"
+      },
+      {
+        "id": "card.shop.common",
+        "kind": "card",
+        "source": "shop",
+        "rarity": "common",
+        "weight": 50,
+        "_source": "economy.xlsx/weights/row 20"
+      },
+      {
+        "id": "card.shop.rare",
+        "kind": "card",
+        "source": "shop",
+        "rarity": "rare",
+        "weight": 35,
+        "_source": "economy.xlsx/weights/row 21"
+      },
+      {
+        "id": "card.shop.epic",
+        "kind": "card",
+        "source": "shop",
+        "rarity": "epic",
+        "weight": 15,
+        "_source": "economy.xlsx/weights/row 22"
+      },
+      {
+        "id": "relic.shop.common",
+        "kind": "relic",
+        "source": "shop",
+        "rarity": "common",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 23"
+      },
+      {
+        "id": "relic.shop.rare",
+        "kind": "relic",
+        "source": "shop",
+        "rarity": "rare",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 24"
+      },
+      {
+        "id": "relic.shop.epic",
+        "kind": "relic",
+        "source": "shop",
+        "rarity": "epic",
+        "weight": 1,
+        "_source": "economy.xlsx/weights/row 25"
+      }
+    ]
+  },
+  "bundle_id": "7bb4ef54fab40521417379bfa38591028d105fce96801d8762de9d6de5cc662a"
+}

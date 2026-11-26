@@ -1,0 +1,302 @@
+{
+  "version": 2,
+  "sheets": {
+    "main": [
+      {
+        "id": "event_abandoned_infirmary",
+        "name_key": "event.event_abandoned_infirmary",
+        "description_key": "event_desc.event_abandoned_infirmary",
+        "weight": 1,
+        "_source": "events.xlsx/main/row 2"
+      },
+      {
+        "id": "event_forgotten_anvil",
+        "name_key": "event.event_forgotten_anvil",
+        "description_key": "event_desc.event_forgotten_anvil",
+        "weight": 1,
+        "_source": "events.xlsx/main/row 3"
+      },
+      {
+        "id": "event_sealed_cache",
+        "name_key": "event.event_sealed_cache",
+        "description_key": "event_desc.event_sealed_cache",
+        "weight": 1,
+        "_source": "events.xlsx/main/row 4"
+      }
+    ],
+    "options": [
+      {
+        "id": "infirmary_treat",
+        "event_id": "event_abandoned_infirmary",
+        "order": 1,
+        "text_key": "option.infirmary_treat",
+        "cost_gold": 25,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "none",
+        "required_relic_pool": "",
+        "leave": false,
+        "_source": "events.xlsx/options/row 2"
+      },
+      {
+        "id": "infirmary_scavenge",
+        "event_id": "event_abandoned_infirmary",
+        "order": 2,
+        "text_key": "option.infirmary_scavenge",
+        "cost_gold": 0,
+        "cost_hp": 6,
+        "min_hp": 7,
+        "selection": "hero",
+        "required_relic_pool": "",
+        "leave": false,
+        "_source": "events.xlsx/options/row 3"
+      },
+      {
+        "id": "infirmary_leave",
+        "event_id": "event_abandoned_infirmary",
+        "order": 3,
+        "text_key": "option.infirmary_leave",
+        "cost_gold": 0,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "none",
+        "required_relic_pool": "",
+        "leave": true,
+        "_source": "events.xlsx/options/row 4"
+      },
+      {
+        "id": "anvil_reforge",
+        "event_id": "event_forgotten_anvil",
+        "order": 1,
+        "text_key": "option.anvil_reforge",
+        "cost_gold": 30,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "unupgraded_card",
+        "required_relic_pool": "",
+        "leave": false,
+        "_source": "events.xlsx/options/row 5"
+      },
+      {
+        "id": "anvil_salvage",
+        "event_id": "event_forgotten_anvil",
+        "order": 2,
+        "text_key": "option.anvil_salvage",
+        "cost_gold": 0,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "card",
+        "required_relic_pool": "",
+        "leave": false,
+        "_source": "events.xlsx/options/row 6"
+      },
+      {
+        "id": "anvil_leave",
+        "event_id": "event_forgotten_anvil",
+        "order": 3,
+        "text_key": "option.anvil_leave",
+        "cost_gold": 0,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "none",
+        "required_relic_pool": "",
+        "leave": true,
+        "_source": "events.xlsx/options/row 7"
+      },
+      {
+        "id": "cache_force",
+        "event_id": "event_sealed_cache",
+        "order": 1,
+        "text_key": "option.cache_force",
+        "cost_gold": 0,
+        "cost_hp": 0,
+        "min_hp": 9,
+        "selection": "hero",
+        "required_relic_pool": "normal",
+        "leave": false,
+        "_source": "events.xlsx/options/row 8"
+      },
+      {
+        "id": "cache_unlock",
+        "event_id": "event_sealed_cache",
+        "order": 2,
+        "text_key": "option.cache_unlock",
+        "cost_gold": 35,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "none",
+        "required_relic_pool": "normal",
+        "leave": false,
+        "_source": "events.xlsx/options/row 9"
+      },
+      {
+        "id": "cache_leave",
+        "event_id": "event_sealed_cache",
+        "order": 3,
+        "text_key": "option.cache_leave",
+        "cost_gold": 0,
+        "cost_hp": 0,
+        "min_hp": 0,
+        "selection": "none",
+        "required_relic_pool": "",
+        "leave": true,
+        "_source": "events.xlsx/options/row 10"
+      }
+    ],
+    "outcomes": [
+      {
+        "id": "infirmary_treat.1",
+        "option_id": "infirmary_treat",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 2"
+      },
+      {
+        "id": "infirmary_scavenge.1",
+        "option_id": "infirmary_scavenge",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 3"
+      },
+      {
+        "id": "infirmary_leave.1",
+        "option_id": "infirmary_leave",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 4"
+      },
+      {
+        "id": "anvil_reforge.1",
+        "option_id": "anvil_reforge",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 5"
+      },
+      {
+        "id": "anvil_salvage.1",
+        "option_id": "anvil_salvage",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 6"
+      },
+      {
+        "id": "anvil_leave.1",
+        "option_id": "anvil_leave",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 7"
+      },
+      {
+        "id": "cache_force.1",
+        "option_id": "cache_force",
+        "weight": 70,
+        "_source": "events.xlsx/outcomes/row 8"
+      },
+      {
+        "id": "cache_force.2",
+        "option_id": "cache_force",
+        "weight": 30,
+        "_source": "events.xlsx/outcomes/row 9"
+      },
+      {
+        "id": "cache_unlock.1",
+        "option_id": "cache_unlock",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 10"
+      },
+      {
+        "id": "cache_leave.1",
+        "option_id": "cache_leave",
+        "weight": 1,
+        "_source": "events.xlsx/outcomes/row 11"
+      }
+    ],
+    "effects": [
+      {
+        "id": "infirmary_treat.1.1",
+        "outcome_id": "infirmary_treat.1",
+        "order": 1,
+        "kind": "heal",
+        "target": "party",
+        "amount": 18,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 2"
+      },
+      {
+        "id": "infirmary_scavenge.1.1",
+        "outcome_id": "infirmary_scavenge.1",
+        "order": 1,
+        "kind": "gold",
+        "target": "none",
+        "amount": 20,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 3"
+      },
+      {
+        "id": "anvil_reforge.1.1",
+        "outcome_id": "anvil_reforge.1",
+        "order": 1,
+        "kind": "upgrade",
+        "target": "selected_card",
+        "amount": 1,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 4"
+      },
+      {
+        "id": "anvil_salvage.1.1",
+        "outcome_id": "anvil_salvage.1",
+        "order": 1,
+        "kind": "remove",
+        "target": "selected_card",
+        "amount": 1,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 5"
+      },
+      {
+        "id": "anvil_salvage.1.2",
+        "outcome_id": "anvil_salvage.1",
+        "order": 2,
+        "kind": "gold",
+        "target": "none",
+        "amount": 15,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 6"
+      },
+      {
+        "id": "cache_force.1.1",
+        "outcome_id": "cache_force.1",
+        "order": 1,
+        "kind": "gold",
+        "target": "none",
+        "amount": 30,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 7"
+      },
+      {
+        "id": "cache_force.2.1",
+        "outcome_id": "cache_force.2",
+        "order": 1,
+        "kind": "hp_loss",
+        "target": "selected_hero",
+        "amount": 8,
+        "content_pool": "",
+        "_source": "events.xlsx/effects/row 8"
+      },
+      {
+        "id": "cache_force.2.2",
+        "outcome_id": "cache_force.2",
+        "order": 2,
+        "kind": "grant_relic",
+        "target": "none",
+        "amount": 1,
+        "content_pool": "normal",
+        "_source": "events.xlsx/effects/row 9"
+      },
+      {
+        "id": "cache_unlock.1.1",
+        "outcome_id": "cache_unlock.1",
+        "order": 1,
+        "kind": "grant_relic",
+        "target": "none",
+        "amount": 1,
+        "content_pool": "normal",
+        "_source": "events.xlsx/effects/row 10"
+      }
+    ]
+  },
+  "bundle_id": "7bb4ef54fab40521417379bfa38591028d105fce96801d8762de9d6de5cc662a"
+}

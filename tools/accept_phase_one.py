@@ -60,16 +60,36 @@ def evaluate_suite(result, suite):
     return True, report
 
 
-def fingerprint():
+def fingerprint(ignore=()):
     digest = hashlib.sha256()
     for folder in ('scripts', 'scenes', 'tests', 'tools', 'data', 'tables', 'themes', 'assets'):
         for path in sorted((ROOT/folder).rglob('*')):
             if not path.is_file() or '__pycache__' in path.parts or path.suffix == '.pyc' or path.name.endswith('.inspect.ndjson'):
                 continue
+            if path.relative_to(ROOT).as_posix() in ignore:
+                continue
             digest.update(path.relative_to(ROOT).as_posix().encode('utf-8'))
             digest.update(path.read_bytes())
     digest.update((ROOT/'project.godot').read_bytes())
     return digest.hexdigest()
+
+
+def script_uids():
+    return {path.relative_to(ROOT).as_posix()
+            for folder in ('scripts', 'tests')
+            for path in (ROOT/folder).rglob('*.gd.uid') if path.is_file()}
+
+
+def accept_generated_uids(before_uids, source_before):
+    """Allow import-created script UIDs only; all other source bytes must match."""
+    added = script_uids() - before_uids
+    if not added or fingerprint(ignore=added) != source_before:
+        return []
+    for relative in added:
+        path = ROOT/relative
+        if not path.with_suffix('').is_file() or not re.fullmatch(r'uid://[a-z0-9]+\s*', path.read_text(encoding='utf-8')):
+            return []
+    return sorted(added)
 
 
 def check_resource_paths():
@@ -83,7 +103,7 @@ def check_resource_paths():
     return count
 
 
-def main():
+def main(phase=1, suites=SUITES):
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--static-only', action='store_true')
@@ -97,11 +117,12 @@ def main():
     if min(args.samples, args.turn_limit, args.timeout) <= 0:
         parser.error('samples, turn-limit and timeout must be positive')
     stamp = datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d-%H%M%S')
-    output = (args.output or ROOT/'mywork/codex/phase-one-acceptance'/stamp).resolve()
+    phase_name = {1: 'one', 2: 'two'}[phase]
+    output = (args.output or ROOT/f'mywork/codex/phase-{phase_name}-acceptance'/stamp).resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {'started': stamp, 'mode': 'static' if args.static_only else 'engine',
               'source_sha256': fingerprint(), 'checks': [], 'human_review': 'pending',
-              'phase_one_accepted': False}
+              'phase': phase, f'phase_{phase_name}_accepted': False}
     commands = [
         ('source_json', [sys.executable, '-X', 'utf8', 'tools/export_data.py', '--check']),
         ('export_tests', [sys.executable, '-X', 'utf8', 'tests/test_export_data.py']),
@@ -121,14 +142,20 @@ def main():
         report['checks'].append({'name': 'resource_paths', 'passed': False, 'error': str(exc)})
     if args.godot and all(c['passed'] for c in report['checks']):
         # A fresh clone has source textures and import settings, but no .ctex cache.
+        before_uids = script_uids()
         result = run_process([str(args.godot.resolve()), '--headless', '--editor', '--import',
                               '--path', str(ROOT)], args.timeout)
         (output/'godot_import.log').write_text(result['output'], encoding='utf-8')
         import_passed = result['returncode'] == 0 and not result['timeout'] and not ERROR_LINE.search(result['output'])
         report['checks'].append({'name': 'godot_import', 'passed': bool(import_passed)})
         print(f'godot_import: {"passed" if import_passed else "FAILED"}')
+        generated = accept_generated_uids(before_uids, report['source_sha256'])
+        if generated:
+            report['source_before_import_sha256'] = report['source_sha256']
+            report['generated_script_uids'] = generated
+            report['source_sha256'] = fingerprint()
     if args.godot and all(c['passed'] for c in report['checks']):
-        for suite in SUITES:
+        for suite in suites:
             command = [str(args.godot.resolve()), '--headless', '--path', str(ROOT),
                        '--script', f'res://tests/{suite}.gd', '--',
                        f'--samples={args.samples}', f'--turn-limit={args.turn_limit}',
@@ -146,7 +173,7 @@ def main():
         passed = False
     (output/'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
     print(f'Report: {output / "report.json"}')
-    print('Human visual/playability review is still required; phase two is not enabled.')
+    print(f'Human visual/playability review is still required; phase {phase + 1} is not enabled.')
     return 0 if passed else 1
 
 
