@@ -1,0 +1,204 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/run/card_picker.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/presentation/card_view.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/presentation/hover_help.tscn" id="3"]
+[ext_resource type="Theme" path="res://themes/game_theme.tres" id="4"]
+
+[sub_resource type="StyleBoxFlat" id="Panel"]
+bg_color = Color(0.025, 0.03, 0.04, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.52, 0.39, 0.23, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_left = 12
+corner_radius_bottom_right = 12
+content_margin_left = 16.0
+content_margin_top = 16.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+
+[node name="CardPicker" type="ConfirmationDialog"]
+size = Vector2i(1120, 700)
+unresizable = true
+wrap_controls = false
+dialog_hide_on_ok = false
+dialog_close_on_escape = false
+theme = ExtResource("4")
+script = ExtResource("1")
+preferred_size = Vector2i(1120, 700)
+viewport_margin = Vector2i(40, 40)
+grid_card_size = Vector2(168, 252)
+comparison_card_size = Vector2(220, 330)
+panel_style = SubResource("Panel")
+
+[node name="Content" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = -80.0
+theme_override_constants/separation = 12
+
+[node name="Heading" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.96, 0.85, 0.64, 1)
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="Hint" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.74, 0.73, 0.69, 1)
+horizontal_alignment = 1
+autowrap_mode = 3
+mouse_filter = 2
+
+[node name="Tabs" type="TabBar" parent="Content"]
+visible = false
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+clip_tabs = true
+
+[node name="Context" type="RichTextLabel" parent="Content"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.92, 0.86, 0.73, 1)
+theme_override_font_sizes/normal_font_size = 16
+selection_enabled = false
+context_menu_enabled = false
+focus_mode = 0
+
+[node name="GridPage" type="MarginContainer" parent="Content"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Scroll" type="ScrollContainer" parent="Content/GridPage"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="Cards" type="GridContainer" parent="Content/GridPage/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 22
+theme_override_constants/v_separation = 24
+columns = 5
+
+[node name="Empty" type="Label" parent="Content"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="ComparePage" type="VBoxContainer" parent="Content"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Cards" type="HBoxContainer" parent="Content/ComparePage"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 32
+alignment = 1
+
+[node name="Before" type="VBoxContainer" parent="Content/ComparePage/Cards"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Content/ComparePage/Cards/Before"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="Card" parent="Content/ComparePage/Cards/Before" instance=ExtResource("2")]
+custom_minimum_size = Vector2(220, 330)
+layout_mode = 2
+button_mask = 0
+focus_mode = 0
+hover_scale = 1.0
+
+[node name="Arrow" type="Label" parent="Content/ComparePage/Cards"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 42
+theme_override_colors/font_color = Color(0.96, 0.85, 0.64, 1)
+text = "→"
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="After" type="VBoxContainer" parent="Content/ComparePage/Cards"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Content/ComparePage/Cards/After"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.47, 0.91, 0.63, 1)
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="Card" parent="Content/ComparePage/Cards/After" instance=ExtResource("2")]
+custom_minimum_size = Vector2(220, 330)
+layout_mode = 2
+button_mask = 0
+focus_mode = 0
+hover_scale = 1.0
+
+[node name="Back" type="Button" parent="Content/ComparePage"]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="HoverHelp" parent="." instance=ExtResource("3")]
+
+[node name="SinglePage" type="VBoxContainer" parent="Content"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Label" type="Label" parent="Content/SinglePage"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.96, 0.85, 0.64, 1)
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="Card" parent="Content/SinglePage" instance=ExtResource("2")]
+custom_minimum_size = Vector2(220, 330)
+layout_mode = 2
+button_mask = 0
+focus_mode = 0
+hover_scale = 1.0
+
+[node name="Notice" type="Label" parent="Content/SinglePage"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(1, 0.61, 0.49, 1)
+horizontal_alignment = 1
+autowrap_mode = 3
+mouse_filter = 2
+
+[node name="Back" type="Button" parent="Content/SinglePage"]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+size_flags_horizontal = 4

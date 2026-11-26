@@ -1140,20 +1140,14 @@ func event_effects(outcome_id: String) -> Array:
 
 
 func relic_text(id: String) -> String:
-	var relic := definition("relics", id)
-	if relic.is_empty():
-		return id
-	var values: Dictionary = {}
-	var all_effects: Array = []
-	for trigger in _matching_rows("relics", "triggers", "relic_id", id):
-		for effect in relic_effects(trigger.effect_group):
-			all_effects.append(effect)
-			if effect.get("parameter", "") != "":
-				values[effect.parameter] = (
-					effect.amount * contract.get("parameter_scales", {}).get(effect.kind, 1)
-				)
-	var lines: Array[String] = [text(relic.name_key), text(relic.description_key, values)]
-	lines.append_array(_effect_details(all_effects))
+	var lines: Array[String] = []
+	for section in relic_sections(id):
+		if section.kind == "main":
+			lines.append(str(section.title))
+			if not str(section.body).is_empty():
+				lines.append(str(section.body))
+		else:
+			lines.append(str(section.title) + "：" + str(section.body))
 	return "\n".join(lines)
 
 
@@ -1232,20 +1226,36 @@ func card_effects(id: String, upgraded: bool) -> Array:
 
 func card_text(copy: Dictionary) -> String:
 	var c := definition("cards", copy.card_id)
-	var values: Dictionary = {}
-	for effect in card_effects(c.id, copy.upgraded):
-		if effect.parameter != "":
-			values[effect.parameter] = (
-				effect.amount * contract.get("parameter_scales", {}).get(effect.kind, 1)
-			)
 	return text(
 		"ui.card",
 		{
 			"name": text(c.name_key) + (" +" if copy.upgraded else ""),
 			"cost": c.cost,
-			"description": text(c.description_key, values)
+			"description": card_description(copy)
 		}
 	)
+
+
+func card_description(copy: Dictionary) -> String:
+	var c := definition("cards", str(copy.get("card_id", "")))
+	if c.is_empty():
+		return text("error.card")
+	var values: Dictionary = {}
+	for effect in card_effects(c.id, bool(copy.get("upgraded", false))):
+		if effect.parameter != "":
+			values[effect.parameter] = (
+				effect.amount * contract.get("parameter_scales", {}).get(effect.kind, 1)
+			)
+	return text(c.description_key, values)
+
+
+func card_traits(copy: Dictionary) -> Array[Dictionary]:
+	var card: Dictionary = definition("cards", str(copy.get("card_id", "")))
+	var result: Array[Dictionary] = []
+	for flag in ["retain", "exhaust"]:
+		if bool(card.get(flag, false)):
+			_append_help(result, _keyword_section(flag))
+	return result
 
 
 func card_details(copy: Dictionary) -> String:
@@ -1326,12 +1336,13 @@ func card_sections(copy: Dictionary) -> Array[Dictionary]:
 	var card: Dictionary = definition("cards", str(copy.get("card_id", "")))
 	if card.is_empty():
 		return []
-	var result: Array[Dictionary] = []
-	for flag in ["retain", "exhaust"]:
-		if bool(card.get(flag, false)):
-			_append_help(result, _keyword_section(flag))
+	var result: Array[Dictionary] = card_traits(copy)
 	for section in _effect_sections(card_effects(card.id, bool(copy.get("upgraded", false)))):
 		_append_help(result, section)
+	# A damage card can explicitly describe a threat multiplier without a threat effect.
+	# Ordinary damage and healing still do not add this explanation implicitly.
+	if text(card.description_key).contains(presentation_text("hover.keyword.title.threat")):
+		_append_help(result, _keyword_section("threat"))
 	return result
 
 
@@ -1347,7 +1358,8 @@ func relic_sections(id: String) -> Array[Dictionary]:
 		return [_help_section("relic", id, "", "main")]
 	var values: Dictionary = {}
 	var effects: Array = []
-	for trigger in _matching_rows("relics", "triggers", "relic_id", id):
+	var triggers: Array = relic_triggers([id])
+	for trigger in triggers:
 		for effect in relic_effects(trigger.effect_group):
 			effects.append(effect)
 			if effect.get("parameter", "") != "":
@@ -1359,7 +1371,34 @@ func relic_sections(id: String) -> Array[Dictionary]:
 	]
 	for section in _effect_sections(effects):
 		_append_help(result, section)
+	# Relics can draw cards or alter base resources without a card face explaining them.
+	# Keep these extra rules local to relics so ordinary cards retain concise help.
+	for effect in effects:
+		match str(effect.kind):
+			"draw", "base_draw":
+				_append_help(result, _keyword_section("draw"))
+			"energy", "base_energy":
+				_append_help(result, _keyword_section("energy"))
+		if effect.kind in ["first_damage_bonus", "first_shield_bonus", "first_heal_bonus"]:
+			_append_help(result, _relic_rule_section("first_bonus"))
+		if effect.kind in ["first_damage_bonus", "base_damage_bonus"]:
+			_append_help(result, _relic_rule_section("direct_damage"))
+	# A triggering mechanic is relevant even when the resulting effect is only draw/shield.
+	for trigger in triggers:
+		if trigger.event == "status_dispelled":
+			_append_help(result, _keyword_section("dispel"))
+		elif trigger.event == "interrupt_resolved":
+			_append_help(result, _keyword_section("interrupt"))
 	return result
+
+
+func _relic_rule_section(rule_id: String) -> Dictionary:
+	return _help_section(
+		"relic." + rule_id,
+		presentation_text("hover.relic.title." + rule_id),
+		presentation_text("hover.relic." + rule_id),
+		"keyword"
+	)
 
 
 func unit_sections(unit: Dictionary, _engine: RefCounted = null) -> Array[Dictionary]:

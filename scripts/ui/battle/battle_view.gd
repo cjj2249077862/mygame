@@ -56,9 +56,11 @@ func _ready() -> void:
 	$Margin/Content/Actions/Cancel.pressed.connect(clear_selection)
 	$Margin/Content/Actions/Piles.pressed.connect(_on_piles_pressed.bind("draw"))
 	$Margin/Content/Actions/Discard.pressed.connect(_on_piles_pressed.bind("discard"))
-	$Piles/Tabs.tab_changed.connect(_on_pile_tab_changed)
+	$Margin/Content/Actions/Exhaust.pressed.connect(_on_piles_pressed.bind("exhaust"))
+	$Piles.browse_tab_changed.connect(_on_pile_tab_changed)
 	$Margin/Content/Actions/Piles.icon = Art.icon_texture("draw")
 	$Margin/Content/Actions/Discard.icon = Art.icon_texture("discard")
+	$Margin/Content/Actions/Exhaust.icon = Art.icon_texture("exhaust")
 	$Margin/Content/Energy.texture = Art.icon_texture("energy")
 	$EndConfirm.confirmed.connect(_end_turn)
 	$DispelConfirm.confirmed.connect(_on_dispel_confirmed)
@@ -221,6 +223,9 @@ func refresh() -> void:
 	$Margin/Content/Actions/Discard.text = (
 		data.text("ui.pile.discard") + "  " + str(state.discard.size())
 	)
+	$Margin/Content/Actions/Exhaust.text = (
+		data.text("ui.pile.exhaust") + "  " + str(state.exhaust.size())
+	)
 	end_button.disabled = locked or externally_blocked or state.phase != Types.BattlePhase.PLAYER
 	cast_button.visible = (
 		selected_copy >= 0
@@ -371,6 +376,8 @@ func _on_unit_unhovered(id: String) -> void:
 	if _related_unit == id:
 		_related_unit = ""
 		_update_unit_feedback()
+	if _drag_active:
+		return
 	if hovered_target == id:
 		hovered_target = ""
 		queue_redraw()
@@ -475,35 +482,46 @@ func _end_turn() -> void:
 
 
 func _on_piles_pressed(pile: String = "draw") -> void:
-	if not _active or engine == null:
+	if not _active or engine == null or externally_blocked:
 		return
-	$Drag.cancel()
-	$Piles/Tabs.clear_tabs()
-	for key in PILE_KEYS:
-		$Piles/Tabs.add_tab(data.text("ui.pile." + key).get_slice("（", 0))
-	$Piles/Tabs.current_tab = maxi(0, PILE_KEYS.find(pile))
-	_on_pile_tab_changed($Piles/Tabs.current_tab)
-	_popup_sized($Piles, piles_preferred_size)
+	clear_selection()
+	_on_pile_tab_changed(maxi(0, PILE_KEYS.find(pile)))
 
 
 func _on_pile_tab_changed(index: int) -> void:
-	if engine == null or index < 0 or index >= PILE_KEYS.size():
+	if (
+		not _active
+		or engine == null
+		or externally_blocked
+		or index < 0
+		or index >= PILE_KEYS.size()
+	):
 		return
-	var lines: Array[String] = []
-	for pile in [PILE_KEYS[index]]:
-		lines.append(data.text("ui.pile." + pile))
-		var cards: Array = deck if pile == "deck" else engine.state[pile].duplicate(true)
-		# Never expose the live draw order, even in a text-only pile viewer.
-		cards = cards.duplicate(true)
-		cards.sort_custom(
-			func(a: Dictionary, b: Dictionary) -> bool:
-				return a.card_id < b.card_id if a.card_id != b.card_id else a.copy_id < b.copy_id
+	var pile: String = PILE_KEYS[index]
+	var cards: Array = deck if pile == "deck" else engine.state[pile]
+	var tabs: Array[String] = []
+	for key in PILE_KEYS:
+		var contents: Array = deck if key == "deck" else engine.state[key]
+		tabs.append(data.text("ui.pile." + key).get_slice("（", 0) + "  " + str(contents.size()))
+	$Piles.preferred_size = piles_preferred_size
+	$Piles.viewport_margin = popup_margin
+	# The shared browser sorts copies for display; live piles and RNG remain untouched.
+	(
+		$Piles
+		. open_candidates(
+			cards,
+			data,
+			engine.state.heroes,
+			_generation,
+			{
+				"mode": "browse",
+				"title": data.text("ui.pile." + pile),
+				"hint": data.presentation_text("pile_browser.order"),
+				"tabs": tabs,
+				"tab_index": index,
+			}
 		)
-		for copy in cards:
-			lines.append(data.card_details(copy).replace("\n", "　"))
-		lines.append("")
-	$Piles/Text.text = "\n".join(lines)
-	$Piles/Text.scroll_to_line(0)
+	)
 
 
 func _input(event: InputEvent) -> void:
@@ -531,8 +549,9 @@ func _is_cancel(event: InputEvent) -> bool:
 
 
 func _close_dialogs() -> void:
-	for dialog in [$EndConfirm, $DispelConfirm, $Piles]:
+	for dialog in [$EndConfirm, $DispelConfirm]:
 		dialog.hide()
+	$Piles.dismiss()
 
 
 func _preview_status(target_id: String) -> String:
@@ -571,7 +590,7 @@ func _on_layout_changed() -> void:
 	_position_interaction.call_deferred()
 	queue_redraw.call_deferred()
 	if $Piles.visible:
-		_popup_sized($Piles, piles_preferred_size)
+		$Piles.fit_to_viewport()
 	if $DispelConfirm.visible:
 		_popup_sized($DispelConfirm, dispel_preferred_size)
 
@@ -877,6 +896,26 @@ func _position_interaction() -> void:
 	for panel in [$Interaction/CasterPicker, $Interaction/Preview]:
 		panel.reset_size()
 		panel.position = Vector2((size.x - panel.size.x) * 0.5, top.y + 4)
+		if panel == $Interaction/Preview and $Drag.is_aiming():
+			# The selected card remains visible while aiming; keep its face unobstructed.
+			panel.position.y = maxf(12.0, top.y - panel.size.y - 12.0)
+			# Keep HP, names, statuses and target markers readable beneath the preview.
+			for actor in _unit_views().values():
+				for path in ["Content/Statuses", "Nameplate", "TargetHint"]:
+					var info: Control = actor.get_node(path)
+					if (
+						info.is_visible_in_tree()
+						and panel.get_global_rect().intersects(info.get_global_rect().grow(8.0))
+					):
+						panel.position.y = maxf(
+							12.0,
+							(
+								info.get_global_rect().position.y
+								- global_position.y
+								- panel.size.y
+								- 8.0
+							)
+						)
 
 
 func _refresh_incoming_intents() -> void:

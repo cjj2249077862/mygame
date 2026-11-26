@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/battle/battle_view.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/battle/hand_view.tscn" id="2"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/ui/presentation/battle_feedback.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/battle_stage.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/ui/battle/battle_drag.gd" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/run/card_picker.tscn" id="7"]
 
 [sub_resource type="StyleBoxFlat" id="EndButton"]
 bg_color = Color(0.24, 0.095, 0.055, 0.98)
@@ -44,7 +45,7 @@ event_duration = 0.12
 fast_event_duration = 0.025
 shake_angle = 0.005
 shake_duration = 0.18
-piles_preferred_size = Vector2i(800, 550)
+piles_preferred_size = Vector2i(1120, 700)
 dispel_preferred_size = Vector2i(640, 270)
 popup_margin = Vector2i(40, 40)
 
@@ -131,6 +132,12 @@ theme_override_font_sizes/font_size = 15
 expand_icon = true
 theme_override_constants/icon_max_width = 26
 
+[node name="Exhaust" type="Button" parent="Margin/Content/Actions"]
+layout_mode = 0
+theme_override_font_sizes/font_size = 15
+expand_icon = true
+theme_override_constants/icon_max_width = 26
+
 [node name="Fast" type="CheckButton" parent="Margin/Content/Actions"]
 layout_mode = 0
 theme_override_font_sizes/font_size = 14
@@ -187,24 +194,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 100)
 autowrap_mode = 3
 
-[node name="Piles" type="AcceptDialog" parent="."]
-
-[node name="Tabs" type="TabBar" parent="Piles"]
-anchor_right = 1.0
-offset_left = 12.0
-offset_top = 10.0
-offset_right = -12.0
-offset_bottom = 44.0
-clip_tabs = true
-
-[node name="Text" type="RichTextLabel" parent="Piles"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 54.0
-offset_right = -12.0
-offset_bottom = -60.0
+[node name="Piles" parent="." instance=ExtResource("7")]
 
 [node name="Feedback" type="Control" parent="."]
 layout_mode = 1
@@ -299,3 +289,9 @@ anchor_bottom = 1.0
 mouse_filter = 2
 z_index = 200
 script = ExtResource("6")
+aim_line_width = 4.0
+aim_arrow_length = 20.0
+aim_arrow_half_width = 9.0
+aim_minimum_bend = 60.0
+aim_maximum_bend = 160.0
+aim_segments = 32

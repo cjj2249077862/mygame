@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const KeywordText = preload("res://scripts/ui/presentation/keyword_text.gd")
+
 const META_SECTIONS := "help_sections"
 const META_PLAIN := "help_plain_text"
 const SOURCE_GROUP := "hover_help_sources"
@@ -352,7 +354,7 @@ func _create_entry(entry: Dictionary) -> void:
 		content_padding,
 		Vector2(frame.size.x - content_padding.x * 2.0, entry.title_height),
 		entry.title_size,
-		title_color
+		KeywordText.color_for(panel, str(entry.section.get("id", "")), "KeywordHelp", title_color)
 	)
 	_add_label(
 		frame,

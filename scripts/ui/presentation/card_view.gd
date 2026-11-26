@@ -4,6 +4,7 @@ signal preview_requested(card: Control, active: bool)
 
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
+const KeywordText = preload("res://scripts/ui/presentation/keyword_text.gd")
 @export var hover_scale: float = 1.1
 @export var hover_duration: float = 0.12
 @export var tank_title_color: Color
@@ -25,7 +26,6 @@ func _ready() -> void:
 	focus_entered.connect(_update_preview)
 	focus_exited.connect(_update_preview)
 	resized.connect(_fit_content)
-	$Frame.texture = Art.icon_texture("card_frame")
 	$Content/Heading/Cost/Badge.texture = Art.icon_texture("cost_badge")
 	_fit_content()
 	_sync_state()
@@ -38,7 +38,14 @@ func render(copy: Dictionary, data: RefCounted) -> void:
 	tooltip_text = data.card_details(copy)
 	$Content/Heading/Name.text = data.text(definition.name_key) + (" +" if copy.upgraded else "")
 	$Content/Heading/Cost/Value.text = str(int(definition.cost))
-	$Content/Description.text = text.substr(text.find("\n") + 1)
+	var sections: Array[Dictionary] = data.card_sections(copy)
+	KeywordText.render($Content/Description, data.card_description(copy), sections)
+	var traits: Array[Dictionary] = data.card_traits(copy)
+	var trait_titles: PackedStringArray = []
+	for card_trait in traits:
+		trait_titles.append(str(card_trait.title))
+	KeywordText.render($Content/Traits, " · ".join(trait_titles), traits)
+	$Content/Traits.visible = not traits.is_empty()
 	var role: String = str(definition.role)
 	if role == "" and definition.owner != "":
 		role = str(data.definition("characters", definition.owner).get("role", ""))
@@ -58,7 +65,7 @@ func render(copy: Dictionary, data: RefCounted) -> void:
 	)
 	_fit_content.call_deferred()
 	_sync_state()
-	HoverHelp.attach(self, data.card_sections(copy))
+	HoverHelp.attach(self, sections)
 
 
 func set_drag_suppressed(suppressed: bool) -> void:
@@ -111,7 +118,18 @@ func _fit_content() -> void:
 		"font_size", clampi(roundi(size.x * 0.115), 16, 25)
 	)
 	$Content/Description.add_theme_font_size_override(
-		"font_size", clampi(roundi(size.x * 0.081), 11, 18)
+		"normal_font_size", clampi(roundi(size.x * 0.081), 10, 18)
+	)
+	$Content/Description.add_theme_font_override("normal_font", font)
+	var trait_font_size: int = clampi(roundi(size.x * 0.077), 11, 17)
+	$Content/Traits.add_theme_font_size_override("normal_font_size", trait_font_size)
+	$Content/Traits.add_theme_font_override("normal_font", font)
+	# A real line-height budget keeps the footer readable even in a small confirmation card.
+	$Content/Traits.anchor_top = (
+		0.925 - (ceilf(font.get_height(trait_font_size)) + 2.0) / maxf(size.y, 1.0)
+	)
+	$Content/Description.anchor_bottom = (
+		$Content/Traits.anchor_top - 0.015 if $Content/Traits.visible else 0.925
 	)
 
 

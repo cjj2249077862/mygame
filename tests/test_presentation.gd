@@ -40,6 +40,7 @@ func run_tests() -> void:
 	_test_preferences()
 	await _test_audio()
 	await _test_cards_and_prices()
+	await _test_card_description_layout()
 	await _test_main_wiring()
 	await _test_stage_layout_and_input()
 	await _test_normal_and_fast()
@@ -327,6 +328,66 @@ func _test_cards_and_prices() -> void:
 	await process_frame
 
 
+func _test_card_description_layout() -> void:
+	var card: Button = CardScene.instantiate()
+	root.add_child(card)
+	var description: RichTextLabel = card.get_node("Content/Description")
+	var traits: RichTextLabel = card.get_node("Content/Traits")
+	for card_size in [Vector2(120, 180), Vector2(160, 240), Vector2(220, 330)]:
+		card.custom_minimum_size = card_size
+		card.size = card_size
+		for definition in data.rows("cards"):
+			for upgraded in [false, true]:
+				var copy := {"copy_id": 7, "card_id": definition.id, "upgraded": upgraded}
+				card.render(copy, data)
+				await process_frame
+				await process_frame
+				var label: String = "%s / %s / %s" % [definition.id, upgraded, card_size]
+				expect(
+					description.get_parsed_text() == data.card_description(copy),
+					"Card body retains the complete configured effect: " + label
+				)
+				expect(
+					description.get_content_height() <= description.size.y + 1.0,
+					"The larger description area fits every chapter-one effect: " + label
+				)
+				var special: bool = bool(definition.retain) or bool(definition.exhaust)
+				expect(
+					traits.visible == special, "Only actual card traits receive a footer: " + label
+				)
+				if special:
+					var titles: PackedStringArray = []
+					for section in data.card_traits(copy):
+						titles.append(str(section.title))
+					expect(
+						(
+							traits.get_parsed_text() == " · ".join(titles)
+							and (
+								traits.get_global_rect().position.y
+								>= description.get_global_rect().end.y
+							)
+							and traits.get_content_height() <= traits.size.y + 1.0
+						),
+						"Retain/exhaust stays readable below the complete effect: " + label
+					)
+				else:
+					expect(
+						description.size.y > card.size.y * 0.44,
+						"Ordinary cards reuse the unneeded trait space for their effect: " + label
+					)
+				expect(
+					(
+						traits.mouse_filter == Control.MOUSE_FILTER_IGNORE
+						and description.mouse_filter == Control.MOUSE_FILTER_IGNORE
+						and card.text == data.card_text(copy)
+						and card.tooltip_text == data.card_details(copy)
+					),
+					"Description and traits preserve card input and accessible details: " + label
+				)
+	card.queue_free()
+	await process_frame
+
+
 func _test_main_wiring() -> void:
 	var app: Control = MainScene.instantiate()
 	app.save_directory = _directory("main")
@@ -576,7 +637,7 @@ func _set_hand_count(view: Control, count: int) -> void:
 	for pile in Types.PILES:
 		copies.append_array(view.engine.state[pile])
 		view.engine.state[pile] = []
-	# Keep unique real copies and put one legal targeted card in the exposed slot.
+	# Keep unique real copies and include a legal targeted card in the display.
 	for copy in copies:
 		if copy.card_id == "slash":
 			copies.erase(copy)
@@ -647,13 +708,17 @@ func _check_hand_layout(app: Control, view: Control, count: int) -> void:
 func _check_stage_clicks(app: Control, view: Control) -> void:
 	view.clear_selection()
 	await process_frame
-	var first: Button = view.hand.get_child(0)
+	var first: Button
+	for card in view.hand.get_children():
+		if view.engine.find_card(int(card.get_meta("copy_id"))).card_id == "slash":
+			first = card as Button
+			break
+	if not expect(first != null, "Sorted hand contains the targeted slash fixture"):
+		return
 	var copy_id: int = int(first.get_meta("copy_id"))
 	var before: Dictionary = view.engine.snapshot()
 	var rng_before: int = view.engine.rng.state
-	var exposed_point: Vector2 = (
-		first.get_global_transform() * Vector2(first.size.x * 0.12, first.size.y * 0.45)
-	)
+	var exposed_point: Vector2 = view.hand.help_anchor_rect(first).get_center()
 	_left_click(exposed_point)
 	await process_frame
 	expect(view.selected_copy == copy_id, "Viewport click selects the exposed fan card")
@@ -678,8 +743,11 @@ func _check_stage_clicks(app: Control, view: Control) -> void:
 		reference.play_card(copy_id, "warden", "enemy_0") == "",
 		"Reference applies exactly one legal slash"
 	)
-	first = view.hand.get_child(0)
-	exposed_point = first.get_global_transform() * Vector2(first.size.x * 0.12, first.size.y * 0.45)
+	for card in view.hand.get_children():
+		if int(card.get_meta("copy_id")) == copy_id:
+			first = card as Button
+			break
+	exposed_point = view.hand.help_anchor_rect(first).get_center()
 	_left_click(exposed_point)
 	await process_frame
 	expect(view.selected_copy == copy_id, "Card selection still works after cancellation")

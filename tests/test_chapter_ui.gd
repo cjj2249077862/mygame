@@ -5,6 +5,7 @@ const MapScene = preload("res://scenes/run/map_view.tscn")
 const NodeScene = preload("res://scenes/run/node_panel.tscn")
 const RewardScene = preload("res://scenes/run/reward_panel.tscn")
 const Types = preload("res://scripts/core/enums.gd")
+const Run = preload("res://scripts/core/run_manager.gd")
 var app: Control
 var data: RefCounted
 
@@ -318,38 +319,23 @@ func _test_node_choices() -> void:
 		"token": 20,
 		"gold": 100,
 		"persistence_error": "",
+		"party":
+		[
+			{"definition_id": "warden", "role": "tank"},
+			{"definition_id": "blade", "role": "assassin"},
+			{"definition_id": "mender", "role": "healer"},
+		],
 		"camp":
 		{
 			"recoveries": [{"id": "warden", "name": "守卫", "amount": 24, "hp": 30, "max_hp": 80}],
-			"upgrade_cards": [{"copy_id": 7, "before": "基础 8", "after": "升级 11"}]
+			"upgrade_cards": _camp_upgrade_cards()
 		},
 		"shop": {},
 		"event": {}
 	}
 	panel.render(state, data)
 	await _check_layout_sizes(panel, ["Margin/Content/Camp/Rest", "Margin/Content/Camp/Upgrade"])
-	panel.get_node("Margin/Content/Camp/Upgrade").pressed.emit()
-	await _check_popup_sizes(
-		panel.get_node("Picker"), Vector2i(800, 580), ["Content/Scroll", "Content/Preview"]
-	)
-	expect(panel.get_node("Picker").get_ok_button().disabled, "Upgrade needs a selected card copy")
-	panel.get_node("Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
-	expect(
-		(
-			panel.get_node("Picker/Content/Preview").text.contains("基础 8")
-			and panel.get_node("Picker/Content/Preview").text.contains("升级 11")
-		),
-		"Upgrade shows both versions before committing"
-	)
-	panel.get_node("Picker").get_cancel_button().pressed.emit()
-	expect(calls.is_empty(), "Cancelling upgrade consumes no camp action")
-	panel.get_node("Margin/Content/Camp/Upgrade").pressed.emit()
-	panel.get_node("Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
-	panel.get_node("Picker").get_ok_button().pressed.emit()
-	panel._on_picker_confirmed()
-	expect(
-		calls == [["camp_upgrade", "", 7, 20, ""]], "Upgrade submits exactly the selected copy once"
-	)
+	await _check_camp_upgrade(panel, state, calls)
 	state.phase = Types.RunPhase.SHOP
 	state.token = 21
 	state.shop = {
@@ -385,7 +371,11 @@ func _test_node_choices() -> void:
 		],
 		"refresh_cost": 120,
 		"remove_cost": 40,
-		"removable_cards": [{"copy_id": 7, "text": "同名卡"}, {"copy_id": 8, "text": "同名卡"}]
+		"removable_cards":
+		[
+			{"copy_id": 7, "card_id": "slash", "upgraded": false},
+			{"copy_id": 8, "card_id": "slash", "upgraded": true}
+		]
 	}
 	panel.render(state, data)
 	var options = panel.get_node("Margin/Content/OptionsScroll/Options")
@@ -409,20 +399,7 @@ func _test_node_choices() -> void:
 		panel.get_node("Margin/Content/ShopActions/Refresh").disabled,
 		"Unaffordable refresh is disabled"
 	)
-	panel.get_node("Margin/Content/ShopActions/Remove").pressed.emit()
-	await _check_popup_sizes(
-		panel.get_node("Picker"), Vector2i(800, 580), ["Content/Scroll", "Content/Preview"]
-	)
-	panel.get_node("Picker/Content/Scroll/Cards").get_child(1).pressed.emit()
-	expect(
-		panel.get_node("Picker/Content/Preview").text.contains("40"),
-		"Delete confirmation shows current price"
-	)
-	panel.get_node("Picker").get_ok_button().pressed.emit()
-	expect(
-		calls.back() == ["shop_remove", "", 8, 21, ""],
-		"Delete identifies a single copy among duplicates"
-	)
+	await _check_shop_removal(panel, state, calls)
 	state.phase = Types.RunPhase.EVENT
 	state.token = 22
 	state.event = {
@@ -474,8 +451,438 @@ func _test_node_choices() -> void:
 		not panel.get_node("Picker").visible,
 		"Save-blocked event controls cannot open a mutation confirmation"
 	)
+	state.persistence_error = ""
+	await _check_card_events(panel, state, calls)
 	panel.queue_free()
 	await process_frame
+
+
+func _camp_upgrade_cards() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for id in [
+		"shield_bash",
+		"tactic_plan",
+		"heal",
+		"first_aid",
+		"stab",
+		"double_stab",
+		"guard",
+		"slash",
+		"assassin_toxin",
+		"healer_ember",
+		"warden_command",
+		"tank_break",
+		"tactic_bandage",
+		"slash"
+	]:
+		var copy: Dictionary = {"copy_id": result.size() + 7, "card_id": id, "upgraded": false}
+		var after: Dictionary = copy.duplicate(true)
+		after.upgraded = true
+		copy["before"] = data.card_text(copy)
+		copy["after"] = data.card_text(after)
+		result.append(copy)
+	return result
+
+
+func _picker_card(picker: Window, copy_id: int) -> Button:
+	for card in picker.get_node("Content/GridPage/Scroll/Cards").get_children():
+		if int(card.get_meta("copy_id", -1)) == copy_id:
+			return card as Button
+	return null
+
+
+func _check_shop_removal(panel: Control, state: Dictionary, calls: Array) -> void:
+	var picker: ConfirmationDialog = panel.get_node("CardPicker")
+	var open: Button = panel.get_node("Margin/Content/ShopActions/Remove")
+	var before_count := calls.size()
+	var source: Array = state.shop.removable_cards.duplicate(true)
+	open.pressed.emit()
+	expect(picker.visible and not panel.get_node("Picker").visible)
+	expect(picker.get_ok_button().disabled, "Shop removal requires an explicit card choice")
+	var context: RichTextLabel = picker.get_node("Content/Context")
+	var cost_text: String = data.presentation_text(
+		"card_picker.shop_remove.hint", {"cost": 40, "gold": 100}
+	)
+	expect(context.text.contains(cost_text), "Removal grid shows the complete current price")
+	_picker_card(picker, 8).pressed.emit()
+	await _check_popup_sizes(
+		picker,
+		Vector2i(1120, 700),
+		[
+			"Content/Context",
+			"Content/SinglePage/Card",
+			"Content/SinglePage/Back",
+			"Content/SinglePage/Notice"
+		]
+	)
+	await _check_card_picker_shrinking(
+		picker, ["Content/SinglePage/Card", "Content/SinglePage/Back", "Content/SinglePage/Notice"]
+	)
+	expect(
+		(
+			picker.get_node("Content/SinglePage").visible
+			and not picker.get_node("Content/ComparePage").visible
+			and picker.get_node("Content/SinglePage/Card").text == data.card_text(source[1])
+		),
+		"Removal confirms the chosen upgraded copy with its actual card face"
+	)
+	expect(
+		(
+			context.text.contains(cost_text)
+			and (
+				picker.get_node("Content/SinglePage/Notice").text
+				== data.presentation_text("card_picker.remove.notice")
+			)
+			and calls.size() == before_count
+			and state.shop.removable_cards == source
+		),
+		"Choosing a card preserves the removal price and notice without spending or removing"
+	)
+	picker.get_node("Content/SinglePage/Back").pressed.emit()
+	expect(picker.get_node("Content/GridPage").visible and picker.get_ok_button().disabled)
+	_picker_card(picker, 7).pressed.emit()
+	picker.get_cancel_button().pressed.emit()
+	expect(
+		not picker.visible and calls.size() == before_count, "Cancelled deletion submits nothing"
+	)
+	state.gold = 39
+	panel.render(state, data)
+	open.pressed.emit()
+	expect(open.disabled and not picker.visible, "Unaffordable removal cannot open confirmation")
+	state.gold = 100
+	state.shop.removable_cards = []
+	panel.render(state, data)
+	open.pressed.emit()
+	expect(open.disabled and not picker.visible, "An empty deck has no removal confirmation")
+	state.shop.removable_cards = source
+	panel.render(state, data)
+	open.pressed.emit()
+	_picker_card(picker, 8).pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	expect(
+		calls.size() == before_count + 1 and calls.back() == ["shop_remove", "", 8, 21, ""],
+		"Removal submits exactly one upgraded copy, even after a repeated confirmation"
+	)
+
+
+func _event_button(panel: Control, state: Dictionary, option_id: String) -> Button:
+	for index in range(state.event.options.size()):
+		if state.event.options[index].id == option_id:
+			return panel.get_node("Margin/Content/OptionsScroll/Options").get_child(index) as Button
+	return null
+
+
+func _check_card_events(panel: Control, state: Dictionary, calls: Array) -> void:
+	# Build the real anvil's public view; action submissions remain isolated from transactions.
+	var run := Run.new(data)
+	run.phase = Types.RunPhase.EVENT
+	run.action_token = 24
+	run.gold = 100
+	run.party.assign(state.party)
+	run.deck.assign(
+		[
+			{"copy_id": 7, "card_id": "slash", "upgraded": false},
+			{"copy_id": 8, "card_id": "slash", "upgraded": true},
+			{"copy_id": 9, "card_id": "guard", "upgraded": false}
+		]
+	)
+	run._generate_event("event_forgotten_anvil")
+	state = run.view_snapshot()
+	panel.render(state, data)
+	var picker: ConfirmationDialog = panel.get_node("CardPicker")
+	var context: RichTextLabel = picker.get_node("Content/Context")
+	var reforge: Dictionary = {}
+	var salvage: Dictionary = {}
+	for option in state.event.options:
+		if option.id == "anvil_reforge":
+			reforge = option
+		elif option.id == "anvil_salvage":
+			salvage = option
+	if not expect(not reforge.is_empty() and not salvage.is_empty()):
+		return
+	var before_count := calls.size()
+	_event_button(panel, state, "anvil_reforge").pressed.emit()
+	expect(picker.visible and not panel.get_node("Picker").visible)
+	expect(_picker_card(picker, 8) == null, "The real reforge excludes already upgraded cards")
+	_picker_card(picker, 7).pressed.emit()
+	expect(
+		(
+			picker.get_node("Content/ComparePage").visible
+			and context.text.contains(reforge.details)
+			and context.text.contains("30")
+		),
+		"Reforge retains its fee and complete event effects beside the upgrade comparison"
+	)
+	var stale: Button = _picker_card(picker, 7)
+	var stale_request: int = picker._request_id
+	_event_button(panel, state, "anvil_salvage").pressed.emit()
+	stale.pressed.emit()
+	picker.selected.emit(7, state.token, stale_request)
+	expect(
+		picker.visible and picker.get_ok_button().disabled and calls.size() == before_count,
+		"Switching options at the same node token rejects the previous grid and result callbacks"
+	)
+	_picker_card(picker, 8).pressed.emit()
+	expect(
+		(
+			picker.get_node("Content/SinglePage").visible
+			and picker.get_node("Content/SinglePage/Card").text == data.card_text(run.deck[1])
+			and context.text.contains(salvage.details)
+			and context.text.contains("15")
+		),
+		"Salvage can remove an upgraded copy while retaining its gold reward description"
+	)
+	picker.get_ok_button().pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	expect(
+		(
+			calls.size() == before_count + 1
+			and calls.back() == ["choose_event_option", "anvil_salvage", -1, 24, "8"]
+		),
+		"Event removal submits the selected choice id exactly once, not a shop action"
+	)
+	panel.render(state, data)
+	_event_button(panel, state, "anvil_reforge").pressed.emit()
+	_picker_card(picker, 9).pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	expect(calls.back() == ["choose_event_option", "anvil_reforge", -1, 24, "9"])
+	# Future mixed outcomes retain every probability and never promise a definite upgrade/removal.
+	var mixed: Dictionary = salvage.duplicate(true)
+	mixed.id = "future_mixed"
+	mixed.card_mode = "select"
+	mixed.details = "消耗 25 金币\n70%：升级所选卡牌\n30%：移除所选卡牌\n".repeat(6)
+	state.event.options = [mixed]
+	panel.render(state, data)
+	_event_button(panel, state, mixed.id).pressed.emit()
+	_picker_card(picker, 8).pressed.emit()
+	await _check_popup_sizes(
+		picker,
+		Vector2i(1120, 700),
+		["Content/Context", "Content/SinglePage/Card", "Content/SinglePage/Back"]
+	)
+	expect(
+		(
+			picker.get_node("Content/SinglePage").visible
+			and not picker.get_node("Content/ComparePage").visible
+			and not picker.get_node("Content/SinglePage/Notice").visible
+			and context.text.contains(mixed.details)
+			and context.scroll_active
+		),
+		"Mixed outcomes use a neutral card confirmation with complete scrollable probabilities"
+	)
+	context.scroll_to_line(context.get_line_count() - 1)
+	await process_frame
+	expect(context.get_v_scroll_bar().value > 0, "Long event terms remain reachable by scrolling")
+	before_count = calls.size()
+	picker.get_node("Content/SinglePage/Back").pressed.emit()
+	_picker_card(picker, 7).pressed.emit()
+	picker.get_cancel_button().pressed.emit()
+	expect(calls.size() == before_count, "Cancelling a mixed outcome spends no event action")
+	_event_button(panel, state, mixed.id).pressed.emit()
+	_picker_card(picker, 8).pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	expect(calls.back() == ["choose_event_option", "future_mixed", -1, 24, "8"])
+	state.persistence_error = "save_write_failed"
+	panel.render(state, data)
+	_event_button(panel, state, mixed.id).pressed.emit()
+	expect(not picker.visible, "Save-blocked card events cannot open the shared picker")
+	state.persistence_error = ""
+	state.event.options[0].choices = []
+	panel.render(state, data)
+	_event_button(panel, state, mixed.id).pressed.emit()
+	expect(not picker.visible, "Card events without eligible copies cannot open an empty picker")
+
+
+func _check_camp_upgrade(panel: Control, state: Dictionary, calls: Array) -> void:
+	var source: Array = state.camp.upgrade_cards.duplicate(true)
+	var picker: ConfirmationDialog = panel.get_node("CardPicker")
+	var grid: GridContainer = picker.get_node("Content/GridPage/Scroll/Cards")
+	var open: Button = panel.get_node("Margin/Content/Camp/Upgrade")
+	open.pressed.emit()
+	await _check_popup_sizes(
+		picker,
+		Vector2i(1120, 700),
+		["Content/Heading", "Content/Context", "Content/GridPage/Scroll"]
+	)
+	expect(
+		picker.visible and not panel.get_node("Picker").visible,
+		"Camp opens the visual upgrade picker rather than the generic text list"
+	)
+	expect(picker.get_ok_button().disabled, "Upgrade needs a selected card copy")
+	expect(
+		(
+			picker.get_node("Content/GridPage").visible
+			and not picker.get_node("Content/ComparePage").visible
+		),
+		"Upgrade initially shows a card grid without a selected comparison"
+	)
+	var displayed: Array[String] = []
+	for card in grid.get_children():
+		var copy: Dictionary = {}
+		for candidate in source:
+			if int(candidate.copy_id) == int(card.get_meta("copy_id", -1)):
+				copy = candidate
+		if not expect(not copy.is_empty(), "Every grid card identifies its exact deck copy"):
+			continue
+		displayed.append(str(copy.card_id))
+		expect(
+			(
+				card.has_node("Content/Art")
+				and card.has_node("Content/Description")
+				and card.get_node("Content/Art").texture != null
+				and card.text == data.card_text(copy)
+			),
+			"Upgrade choices show complete illustrated card faces with current values"
+		)
+	expect(
+		(
+			displayed
+			== [
+				"tank_break",
+				"warden_command",
+				"slash",
+				"slash",
+				"guard",
+				"shield_bash",
+				"stab",
+				"assassin_toxin",
+				"double_stab",
+				"healer_ember",
+				"first_aid",
+				"heal",
+				"tactic_plan",
+				"tactic_bandage"
+			]
+		),
+		"Camp grid follows party slot and localized card-name order, with neutral cards last"
+	)
+	var keyword_card: Button = _picker_card(picker, 7)
+	expect(
+		(
+			keyword_card != null
+			and str(keyword_card.get_meta("help_plain_text", "")).contains(
+				data.presentation_text("hover.keyword.title.interrupt")
+			)
+		),
+		"The illustrated choices retain contextual mechanic explanations"
+	)
+	var scroll: ScrollContainer = picker.get_node("Content/GridPage/Scroll")
+	expect(
+		grid.columns > 1 and grid.size.y > scroll.size.y,
+		"A large deck uses multiple columns and scrolling"
+	)
+	scroll.ensure_control_visible(grid.get_child(grid.get_child_count() - 1))
+	await process_frame
+	await process_frame
+	expect(scroll.scroll_vertical > 0, "Cards beyond the first rows remain reachable by scrolling")
+	keyword_card.pressed.emit()
+	await _check_popup_sizes(
+		picker,
+		Vector2i(1120, 700),
+		[
+			"Content/ComparePage/Back",
+			"Content/ComparePage/Cards/Before/Card",
+			"Content/ComparePage/Cards/After/Card"
+		]
+	)
+	await _check_card_picker_shrinking(
+		picker,
+		[
+			"Content/ComparePage/Cards/Before/Card",
+			"Content/ComparePage/Cards/After/Card",
+			"Content/ComparePage/Back"
+		]
+	)
+	var before: Button = picker.get_node("Content/ComparePage/Cards/Before/Card")
+	var after: Button = picker.get_node("Content/ComparePage/Cards/After/Card")
+	var copy: Dictionary = source[0].duplicate(true)
+	var upgraded: Dictionary = copy.duplicate(true)
+	upgraded.upgraded = true
+	expect(
+		(
+			before.text == data.card_text(copy)
+			and after.text == data.card_text(upgraded)
+			and before.text != after.text
+		),
+		"Comparison renders actual base and upgraded card effects before committing"
+	)
+	expect(
+		(
+			picker.get_node("Content/ComparePage").visible
+			and not picker.get_node("Content/GridPage").visible
+			and not picker.get_ok_button().disabled
+			and calls.is_empty()
+			and state.camp.upgrade_cards == source
+		),
+		"Selecting a card only opens comparison and never upgrades the source copy"
+	)
+	picker.get_node("Content/ComparePage/Back").pressed.emit()
+	expect(
+		(
+			picker.get_node("Content/GridPage").visible
+			and picker.get_ok_button().disabled
+			and calls.is_empty()
+		),
+		"Returning to the grid clears the pending choice without consuming the camp action"
+	)
+	_picker_card(picker, 7).pressed.emit()
+	picker.get_cancel_button().pressed.emit()
+	expect(not picker.visible and calls.is_empty(), "Cancelling comparison consumes no camp action")
+	for method in ["escape", "right"]:
+		open.pressed.emit()
+		_picker_card(picker, 7).pressed.emit()
+		var cancel_input: InputEvent
+		if method == "escape":
+			var key := InputEventKey.new()
+			key.keycode = KEY_ESCAPE
+			key.pressed = true
+			cancel_input = key
+		else:
+			var mouse := InputEventMouseButton.new()
+			mouse.button_index = MOUSE_BUTTON_RIGHT
+			mouse.pressed = true
+			cancel_input = mouse
+		picker.window_input.emit(cancel_input)
+		expect(
+			not picker.visible and calls.is_empty(),
+			method + " cancels the upgrade without submitting"
+		)
+	open.pressed.emit()
+	var stale: Button = _picker_card(picker, 7)
+	var stale_request: int = picker._request_id
+	state.token = 21
+	panel.render(state, data)
+	stale.pressed.emit()
+	picker.selected.emit(7, 20, stale_request)
+	expect(
+		not picker.visible and calls.is_empty(),
+		"Stale card callbacks and tokens cannot upgrade a refreshed node"
+	)
+	state.token = 20
+	state.persistence_error = "save_write_failed"
+	panel.render(state, data)
+	open.pressed.emit()
+	expect(
+		open.disabled and not picker.visible, "Save-blocked camps cannot open the upgrade picker"
+	)
+	state.persistence_error = ""
+	state.camp.upgrade_cards = []
+	panel.render(state, data)
+	open.pressed.emit()
+	expect(
+		open.disabled and not picker.visible,
+		"A camp without eligible cards cannot open an empty picker"
+	)
+	state.camp.upgrade_cards = source.duplicate(true)
+	panel.render(state, data)
+	open.pressed.emit()
+	_picker_card(picker, 7).pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	picker.get_ok_button().pressed.emit()
+	expect(
+		calls == [["camp_upgrade", "", 7, 20, ""]], "Upgrade submits exactly the selected copy once"
+	)
 
 
 func _test_reward_sections() -> void:
@@ -670,9 +1077,19 @@ func _test_event_receipt() -> void:
 		. pressed
 		. emit()
 	)
-	if choices[selected].selection != "none":
-		app.get_node("NodePanel/Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
-	app.get_node("NodePanel/Picker").get_ok_button().pressed.emit()
+	if choices[selected].selection in ["card", "unupgraded_card"]:
+		(
+			app
+			. get_node("NodePanel/CardPicker/Content/GridPage/Scroll/Cards")
+			. get_child(0)
+			. pressed
+			. emit()
+		)
+		app.get_node("NodePanel/CardPicker").get_ok_button().pressed.emit()
+	else:
+		if choices[selected].selection != "none":
+			app.get_node("NodePanel/Picker/Content/Scroll/Cards").get_child(0).pressed.emit()
+		app.get_node("NodePanel/Picker").get_ok_button().pressed.emit()
 	await process_frame
 	var receipt: Dictionary = app.run.view_snapshot().get("event_result", {})
 	if not expect(not receipt.is_empty(), "Settled event exposes a result receipt"):
@@ -790,6 +1207,56 @@ func _check_physical_window_scaling(dialog: Window) -> void:
 			scaled_popup.get_center().distance_to(scaled_view.get_center()) <= 1.0,
 			"Physical resizing preserves the popup centre in the stretched content"
 		)
+
+
+func _check_card_picker_shrinking(picker: ConfirmationDialog, paths: Array) -> void:
+	# Keep the selected page open: old card minimums must not survive the smaller viewport.
+	var expanded_card_height := 0.0
+	for logical_size in [
+		Vector2i(1440, 900), Vector2i(1280, 720), Vector2i(1100, 660), Vector2i(1440, 900)
+	]:
+		await _set_logical_size(logical_size)
+		await process_frame
+		await process_frame
+		var available: Vector2i = logical_size - picker.viewport_margin
+		var expected_size := Vector2i(
+			mini(picker.preferred_size.x, available.x), mini(picker.preferred_size.y, available.y)
+		)
+		expect(
+			picker.visible and picker.size == expected_size,
+			"The already selected card page shrinks with the logical viewport: %s" % logical_size
+		)
+		var content: Control = picker.get_node("Content")
+		var content_bounds: Rect2 = content.get_global_rect()
+		var confirm_bounds: Rect2 = picker.get_ok_button().get_global_rect()
+		var cancel_bounds: Rect2 = picker.get_cancel_button().get_global_rect()
+		var footer_top: float = minf(confirm_bounds.position.y, cancel_bounds.position.y)
+		expect(
+			picker.get_ok_button().visible and content_bounds.end.y <= footer_top + 1.0,
+			"Shrinking keeps card content above the confirmation button row"
+		)
+		for path in paths:
+			var control: Control = picker.get_node(path)
+			var bounds: Rect2 = control.get_global_rect()
+			expect(
+				(
+					control.is_visible_in_tree()
+					and content_bounds.grow(1).encloses(bounds)
+					and bounds.end.y <= footer_top + 1.0
+				),
+				(
+					"Selected cards and Back stay within Content and clear of confirmation buttons: %s / %s"
+					% [logical_size, path]
+				)
+			)
+		var card: Control = picker.get_node(paths[0])
+		if expanded_card_height == 0.0:
+			expanded_card_height = card.size.y
+		elif logical_size.y == 660:
+			expect(
+				card.size.y < expanded_card_height,
+				"An already displayed card actually contracts after shrinking its host viewport"
+			)
 
 
 func _apply_node_margins(control: Control) -> void:

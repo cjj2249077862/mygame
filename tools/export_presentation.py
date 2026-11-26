@@ -42,6 +42,13 @@ REQUIRED_KEYS = frozenset('presentation.' + name for name in (
     'title', 'shared', 'row', 'empty', 'reason_title', 'by_threat',
     'lowest_locked', 'fixed_dead', 'all', 'additional_all', 'support',
     'interrupted', 'inactive', 'taunt_rule', 'missing_target',
+)) | frozenset(('camp_upgrade.hint',)) | frozenset('card_picker.' + name for name in (
+    'upgrade.choose', 'before', 'after', 'back', 'upgrade.confirm',
+    'remove.choose', 'remove.confirm', 'remove.selected', 'remove.notice',
+    'select.choose', 'select.confirm', 'select.selected', 'shop_remove.hint', 'context',
+    'browse.empty', 'browse.back',
+)) | frozenset(('pile_browser.order',)) | frozenset('hover.relic.' + name for name in (
+    'title.first_bonus', 'first_bonus', 'title.direct_damage', 'direct_damage',
 ))
 PLACEHOLDERS = {
     'interaction.caster': {'name'}, 'interaction.target_count': {'count'},
@@ -56,6 +63,7 @@ PLACEHOLDERS = {
     'hover.threat.by_threat': {'target'},
     'hover.threat.lowest_locked': {'target'},
     'hover.threat.fixed_dead': {'target'},
+    'card_picker.shop_remove.hint': {'cost', 'gold'},
 }
 
 

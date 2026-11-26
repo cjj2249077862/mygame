@@ -30,6 +30,7 @@ func run_tests() -> void:
 	app.preferences.set_option("shake_enabled", false)
 	app.preferences.set_option("show_log", false)
 	await _restart()
+	await _test_hand_sorting()
 	await _test_click_and_release()
 	await _test_cancel_paths()
 	await _test_unavailable_and_overlays()
@@ -158,6 +159,190 @@ func _expect_unchanged(before: Dictionary, rng_state: int, label: String) -> voi
 	)
 
 
+func _expect_aim(pointer: Vector2, valid: bool, label: String) -> void:
+	expect(
+		drag.is_dragging() and drag.is_aiming() and drag.get_child_count() == 0,
+		label + " uses an aiming curve without a moving card ghost"
+	)
+	var card: Control = _hand_card(_copy_id)
+	if not expect(card != null, label + " retains the source card in hand"):
+		return
+	expect(card.modulate.a == 1.0, label + " keeps the original card visible")
+	expect(
+		view.hand.hover_region().encloses(card.get_global_rect()),
+		label + " keeps the card inside the hand"
+	)
+	expect(drag._aim_valid == valid, label + " reports current target legality")
+	if valid:
+		var target_id: String = str(view.hovered_target)
+		view._on_unit_unhovered(target_id)
+		expect(
+			view.hovered_target == target_id,
+			label + " keeps pointer aiming independent of native hover-exit signals"
+		)
+	if valid:
+		var preview: Control = view.get_node("Interaction/Preview")
+		expect(
+			preview.visible and not preview.get_global_rect().intersects(view.hand.hover_region()),
+			label + " places the outcome preview above the retained source card"
+		)
+	var points: PackedVector2Array = drag._aim_points
+	if not expect(points.size() > 2, label + " provides a sampled curve"):
+		return
+	for point in points:
+		expect(point.is_finite(), label + " has finite curve coordinates")
+	expect(
+		(drag.get_global_transform() * points[0]).distance_to(view.hand.aim_origin(_copy_id)) < 1.0,
+		label + " starts at the original card's upper edge"
+	)
+	expect(
+		(drag.get_global_transform() * points[points.size() - 1]).distance_to(pointer) < 1.0,
+		label + " ends at the current pointer"
+	)
+
+
+func _expect_no_aim(label: String) -> void:
+	expect(not drag.is_aiming() and drag._aim_points.is_empty(), label + " clears the aiming curve")
+
+
+func _hand_card(copy_id: int) -> Control:
+	for card in view.hand.get_children():
+		if int(card.get_meta("copy_id", -1)) == copy_id:
+			return card as Control
+	return null
+
+
+func _mixed_hand(card_ids: Array[String]) -> Array[Dictionary]:
+	view.clear_selection()
+	app.get_node("HoverHelp").hide_help()
+	var selected: Array[Dictionary] = []
+	var used: Array[int] = []
+	for card_id in card_ids:
+		var chosen: Dictionary = {}
+		for copy in app.run.deck:
+			if copy.card_id == card_id and int(copy.copy_id) not in used:
+				chosen = copy.duplicate(true)
+				break
+		if chosen.is_empty():
+			app.run._add_card(card_id)
+			chosen = app.run.deck.back().duplicate(true)
+		selected.append(chosen)
+		used.append(int(chosen.copy_id))
+	for pile in Types.PILES:
+		view.engine.state[pile] = []
+	view.engine.state.hand = selected.duplicate(true)
+	for copy in app.run.deck:
+		if int(copy.copy_id) not in used:
+			view.engine.state.draw.append(copy.duplicate(true))
+	view.engine.state.energy = 3
+	view.refresh()
+	await _layout()
+	return selected
+
+
+func _visible_card_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for card in view.hand.get_children():
+		ids.append(str(view.engine.find_card(int(card.get_meta("copy_id"))).card_id))
+	return ids
+
+
+func _test_hand_sorting() -> void:
+	await _mixed_hand(
+		[
+			"tactic_plan",
+			"first_aid",
+			"shield_bash",
+			"heal",
+			"stab",
+			"guard",
+			"slash",
+			"double_stab",
+			"slash"
+		]
+	)
+	var slashes: Array[int] = []
+	for copy in view.engine.state.hand:
+		if copy.card_id == "slash":
+			slashes.append(int(copy.copy_id))
+	view.engine.find_card(slashes[0]).upgraded = true
+	view.engine.state.hand.reverse()
+	var before: Dictionary = view.engine.snapshot()
+	var rng_state: int = view.engine.rng.state
+	view.refresh()
+	await _layout()
+	expect(
+		(
+			_visible_card_ids()
+			== [
+				"slash",
+				"slash",
+				"guard",
+				"shield_bash",
+				"stab",
+				"double_stab",
+				"first_aid",
+				"heal",
+				"tactic_plan"
+			]
+		),
+		"Hand groups by party slot, then localized card name, with neutral cards last"
+	)
+	slashes.sort()
+	expect(
+		(
+			int(view.hand.get_child(0).get_meta("copy_id")) == slashes[0]
+			and int(view.hand.get_child(1).get_meta("copy_id")) == slashes[1]
+		),
+		"Identical names remain adjacent and use stable copy order across upgrades"
+	)
+	_expect_unchanged(before, rng_state, "Sorted hand rendering")
+	var original_heroes: Array = view.engine.state.heroes.duplicate(true)
+	view.engine.state.heroes = [original_heroes[2], original_heroes[0], original_heroes[1]]
+	before = view.engine.snapshot()
+	view.refresh()
+	await _layout()
+	expect(
+		(
+			_visible_card_ids()
+			== [
+				"first_aid",
+				"heal",
+				"slash",
+				"slash",
+				"guard",
+				"shield_bash",
+				"stab",
+				"double_stab",
+				"tactic_plan"
+			]
+		),
+		"Changing party positions reorders both personal and class card groups"
+	)
+	_expect_unchanged(before, rng_state, "Party-position hand refresh")
+	# Rendering still groups cards with a fallen hero's reserved slot.
+	view.engine.state.heroes[0].hp = 0
+	before = view.engine.snapshot()
+	view.refresh()
+	await _layout()
+	expect(
+		_visible_card_ids().slice(0, 2) == ["first_aid", "heal"],
+		"Fallen heroes retain their hand grouping instead of moving cards to the end"
+	)
+	_expect_unchanged(before, rng_state, "Fallen-owner hand refresh")
+	# A repeated role groups shared cards with its first slot, even if that slot is fallen.
+	view.engine.state.heroes[0].role = "tank"
+	before = view.engine.snapshot()
+	view.refresh()
+	await _layout()
+	expect(
+		_visible_card_ids().slice(0, 5) == ["first_aid", "slash", "slash", "guard", "shield_bash"],
+		"Shared-class cards belong to the first matching slot, independently of caster availability"
+	)
+	_expect_unchanged(before, rng_state, "Repeated-role hand refresh")
+	await _restart()
+
+
 func _test_click_and_release() -> void:
 	await _hand("slash")
 	var before: Dictionary = view.engine.snapshot()
@@ -182,8 +367,16 @@ func _test_click_and_release() -> void:
 	_button(point, true)
 	_motion(point + Vector2(8, 0), true)
 	expect(drag.is_dragging(), "Eight logical pixels starts drag")
-	expect(view.hand.get_child(0).modulate.a == 0.0, "Original card keeps its slot but hides")
+	_expect_aim(point + Vector2(8, 0), false, "Targeted attack within hand")
 	var target: Vector2 = _unit("enemy_0").get_global_rect().get_center()
+	_motion(target, true)
+	_expect_aim(target, true, "Targeted attack over enemy")
+	var source_position: Vector2 = view.hand.get_child(0).position
+	_motion(target + Vector2(8, 0), true)
+	expect(
+		view.hand.get_child(0).position == source_position,
+		"Moving the aiming pointer does not move the source card"
+	)
 	_motion(target, true)
 	_expect_unchanged(before, rng_state, "Held card and target preview")
 	expect(view.hovered_target == "enemy_0", "Drag identifies the unit beneath the pointer")
@@ -194,6 +387,7 @@ func _test_click_and_release() -> void:
 		view.engine.state.energy == 2 and view.engine.state.hand.is_empty(),
 		"Release spends one card and one energy"
 	)
+	_expect_no_aim("Successful attack release")
 	expect(
 		not drag.is_dragging() and drag.get_child_count() == 0, "Release removes ghost immediately"
 	)
@@ -233,8 +427,10 @@ func _test_cancel_paths() -> void:
 				_button(_unit("warden").get_global_rect().get_center(), false)
 		_button(target, false)
 		expect(
-			not drag.is_dragging() and drag.get_child_count() == 0, "Cancel clears ghost: " + method
+			not drag.is_dragging() and drag.get_child_count() == 0,
+			"Cancel clears drag visuals: " + method
 		)
+		_expect_no_aim(method + " cancel")
 		expect(view.hand.get_child(0).modulate.a == 1.0, "Cancel restores original card: " + method)
 		expect(view.selected_copy == -1, "Cancel clears pending selection: " + method)
 		_expect_unchanged(before, rng_state, method + " cancel plus later release")
@@ -308,6 +504,12 @@ func _test_self_and_group() -> void:
 		var rng_state: int = view.engine.rng.state
 		var inside: Vector2 = view.hand.get_global_rect().get_center()
 		_start_drag(inside + Vector2(20, 0))
+		expect(
+			drag.is_dragging() and not drag.is_aiming() and drag.get_child_count() == 1,
+			"Self/group card still moves with a ghost: " + card_id
+		)
+		expect(view.hand.get_child(0).modulate.a == 0.0, "Self/group hides only the source face")
+		_expect_no_aim("Self/group drag")
 		_motion(_field_point(), true)
 		_expect_unchanged(before, rng_state, "Self/group crossing before release")
 		_motion(inside, true)
@@ -339,10 +541,12 @@ func _test_ally_and_revive() -> void:
 	var before: Dictionary = view.engine.snapshot()
 	var rng_state: int = view.engine.rng.state
 	_start_drag(_field_point())
+	_expect_aim(_field_point(), false, "Healing over empty field")
 	_button(_field_point(), false)
 	_expect_unchanged(before, rng_state, "Ally heal released on empty field")
 	var target: Vector2 = _unit("mender").get_global_rect().get_center()
 	_start_drag(target)
+	_expect_aim(target, true, "Healing over the caster")
 	_button(target, false)
 	expect(
 		view.engine.find_unit("mender").hp > before.heroes[2].hp,
@@ -356,10 +560,12 @@ func _test_ally_and_revive() -> void:
 	rng_state = view.engine.rng.state
 	target = _unit("blade").get_global_rect().get_center()
 	_start_drag(target)
+	_expect_aim(target, false, "Revival over a living ally")
 	_button(target, false)
 	_expect_unchanged(before, rng_state, "Revive released on a living ally")
 	target = _unit("warden").get_global_rect().get_center()
 	_start_drag(target)
+	_expect_aim(target, true, "Revival over a fallen ally")
 	_button(target, false)
 	expect(fallen.hp > 0 and fallen.revives_used == 1, "Revive requires the selected fallen ally")
 	await _settle()
@@ -433,8 +639,10 @@ func _test_dispel() -> void:
 	var rng_state: int = view.engine.rng.state
 	var target: Vector2 = _unit("warden").get_global_rect().get_center()
 	_start_drag(target)
+	_expect_aim(target, true, "Dispel over an eligible ally")
 	_button(target, false)
 	var dialog: ConfirmationDialog = view.get_node("DispelConfirm")
+	_expect_no_aim("Dispel choice opening")
 	expect(
 		dialog.visible and view.dispel_choices.item_count == 2,
 		"Drag with multiple dispels opens status choice"
@@ -457,37 +665,125 @@ func _test_dispel() -> void:
 
 func _test_piles() -> void:
 	await _restart()
-	await _hand("slash")
+	var draw_fixture: Array[Dictionary] = await _mixed_hand(
+		["tactic_plan", "heal", "shield_bash", "slash", "first_aid", "stab"]
+	)
+	view.engine.state.discard = view.engine.state.draw
+	view.engine.state.draw = draw_fixture.duplicate(true)
+	view.engine.state.hand = []
+	view.engine.state.exhaust = [view.engine.state.discard.pop_back()]
+	view.engine.state.exhaust[0].upgraded = true
+	view.refresh()
+	await _layout()
 	var before: Dictionary = view.engine.snapshot()
 	var rng_state: int = view.engine.rng.state
-	for pair in [["Piles", "draw"], ["Discard", "discard"]]:
+	var browser: ConfirmationDialog = view.get_node("Piles")
+	var selections: Array = []
+	browser.selected.connect(
+		func(copy_id: int, token: int, request_id: int) -> void:
+			selections.append([copy_id, token, request_id])
+	)
+	for pair in [["Piles", "draw"], ["Discard", "discard"], ["Exhaust", "exhaust"]]:
 		view.get_node("Margin/Content/Actions/" + pair[0]).pressed.emit()
-		var tabs: TabBar = view.get_node("Piles/Tabs")
+		var tabs: TabBar = browser.get_node("Content/Tabs")
 		expect(
-			view.get_node("Piles").visible and tabs.current_tab == view.PILE_KEYS.find(pair[1]),
+			browser.visible and tabs.current_tab == view.PILE_KEYS.find(pair[1]),
 			"Pile button chooses its initial tab: " + pair[1]
+		)
+		expect(
+			(
+				view.get_node("Margin/Content/Actions/" + pair[0]).icon != null
+				and view.get_node("Margin/Content/Actions/" + pair[0]).text.ends_with(
+					str(view.engine.state[pair[1]].size())
+				)
+			),
+			"Each pile has its own icon and current count: " + pair[1]
 		)
 		for index in range(tabs.tab_count):
 			tabs.current_tab = index
-			tabs.tab_changed.emit(index)
+			var key: String = view.PILE_KEYS[index]
+			var contents: Array = view.deck if key == "deck" else view.engine.state[key]
+			expect(
+				(
+					browser.get_node("Content/GridPage/Scroll/Cards").get_child_count()
+					== contents.size()
+				),
+				"Every tab displays its own complete pile: " + key
+			)
 		_expect_unchanged(before, rng_state, "Browsing all sorted pile tabs")
-		view.get_node("Piles").hide()
+		browser.dismiss()
 	view._on_piles_pressed("draw")
-	var sorted_cards: Array = before.draw.duplicate(true)
-	sorted_cards.sort_custom(
-		func(a: Dictionary, b: Dictionary) -> bool:
-			return a.card_id < b.card_id if a.card_id != b.card_id else a.copy_id < b.copy_id
-	)
-	var rendered: String = view.get_node("Piles/Text").text
+	var grid: GridContainer = browser.get_node("Content/GridPage/Scroll/Cards")
+	var expected: Array[String] = [
+		"slash", "shield_bash", "stab", "first_aid", "heal", "tactic_plan"
+	]
+	if expect(grid.get_child_count() == expected.size(), "Draw grid includes every card"):
+		for index in range(expected.size()):
+			var card: Button = grid.get_child(index)
+			for copy in draw_fixture:
+				if copy.card_id == expected[index]:
+					expect(
+						(
+							card.text == app.data.card_text(copy)
+							and card.get_meta("copy_id") == copy.copy_id
+							and card.get_node("Content/Art").texture != null
+							and card.has_meta("help_sections")
+						),
+						(
+							"Draw grid shows illustrated sorted copies with mechanic help: "
+							+ expected[index]
+						)
+					)
 	expect(
-		(
-			not sorted_cards.is_empty()
-			and rendered.split("\n")[1] == app.data.card_details(sorted_cards[0]).replace("\n", "　")
-		),
-		"Draw viewer sorts a copy instead of revealing live order"
+		browser.get_node("Content/Hint").text == app.data.presentation_text("pile_browser.order"),
+		"The browser explains that card arrangement is not the draw order"
 	)
+	grid.get_child(0).pressed.emit()
+	await _layout()
+	expect(
+		browser.get_node("Content/SinglePage").visible and not browser.get_ok_button().visible,
+		"Browsing a card opens a larger face without an action confirmation"
+	)
+	browser.confirmed.emit()
+	expect(selections.is_empty(), "Read-only card browsing never emits an actionable selection")
+	browser.get_node("Content/SinglePage/Back").pressed.emit()
+	expect(browser.get_node("Content/GridPage").visible, "The enlarged card returns to its pile")
+	view._on_piles_pressed("exhaust")
+	expect(
+		grid.get_child(0).text == app.data.card_text(view.engine.state.exhaust[0]),
+		"The separate exhausted pile retains the upgraded card face"
+	)
+	view._on_piles_pressed("hand")
+	expect(
+		browser.visible and browser.get_node("Content/Empty").visible,
+		"An empty pile opens an explicit empty state"
+	)
+	for viewport_size in [Vector2i(1200, 760), Vector2i(1440, 900)]:
+		root.content_scale_size = viewport_size
+		root.size = viewport_size
+		view._on_piles_pressed("draw")
+		await _layout()
+		await _layout()
+		expect(
+			browser.size.x <= viewport_size.x - 40 and browser.size.y <= viewport_size.y - 40,
+			"Pile browser stays within the logical window"
+		)
+		var draw_button: Control = view.get_node("Margin/Content/Actions/Piles")
+		var discard_button: Control = view.get_node("Margin/Content/Actions/Discard")
+		var exhaust_button: Control = view.get_node("Margin/Content/Actions/Exhaust")
+		expect(
+			(
+				not draw_button.get_global_rect().intersects(discard_button.get_global_rect())
+				and not discard_button.get_global_rect().intersects(
+					exhaust_button.get_global_rect()
+				)
+				and view.get_global_rect().encloses(exhaust_button.get_global_rect())
+			),
+			"All three separate pile controls stay visible without overlapping"
+		)
+	browser.get_cancel_button().pressed.emit()
+	expect(not browser.visible, "The read-only browser closes through its Close button")
 	_expect_unchanged(before, rng_state, "Sorted draw preview")
-	view.get_node("Piles").hide()
 
 
 func _test_stable_hand_hover() -> void:
@@ -510,7 +806,7 @@ func _test_stable_hand_hover() -> void:
 		for card in cards:
 			var anchor: Rect2 = view.hand.help_anchor_rect(card)
 			var point: Vector2 = anchor.get_center()
-			expect(point.x > previous_x, "Stable slot centers keep deck order")
+			expect(point.x > previous_x, "Stable slot centers keep the sorted display order")
 			previous_x = point.x
 			_motion(point)
 			await process_frame
@@ -571,7 +867,7 @@ func _test_keyword_panels() -> void:
 		root.size = viewport_size
 		await _layout()
 		help.hide_help()
-		var first: Control = view.hand.get_child(0)
+		var first: Control = _hand_card(int(selected[0].copy_id))
 		_motion(view.hand.help_anchor_rect(first).get_center())
 		await create_timer(float(help.hover_delay) * 0.4).timeout
 		expect(not help.panel.visible, "First hover waits before showing keyword panels")
@@ -594,7 +890,7 @@ func _test_keyword_panels() -> void:
 			expect(
 				str(section.id) in shown_ids, "Independent panels retain stable mechanic identity"
 			)
-		var second: Control = view.hand.get_child(1)
+		var second: Control = _hand_card(int(selected[1].copy_id))
 		_motion(view.hand.help_anchor_rect(second).get_center())
 		await create_timer(float(help.switch_delay) + 0.03).timeout
 		expect(
@@ -618,7 +914,7 @@ func _test_keyword_panels() -> void:
 		view.locked = true
 		view.hand.render(view.engine.state.hand, app.data, view.engine, true, -1)
 		await _layout()
-		second = view.hand.get_child(1)
+		second = _hand_card(int(selected[1].copy_id))
 		_motion(view.hand.help_anchor_rect(second).get_center())
 		await create_timer(float(help.hover_delay) + 0.03).timeout
 		expect(
@@ -753,10 +1049,7 @@ func _test_help_and_intents() -> void:
 		var origin: Vector2 = _card_center()
 		_start_drag(_unit("warden").get_global_rect().get_center())
 		expect(help._dragging and not help.panel.visible, "Dragging closes contextual help")
-		expect(
-			app.get_viewport_rect().grow(1).encloses(drag.get_child(0).get_global_rect()),
-			"Drag ghost fits logical viewport"
-		)
+		_expect_aim(_unit("warden").get_global_rect().get_center(), true, "Scaled ally aiming")
 		_motion(origin, true)
 		_button(origin, false)
 	app.run._begin_battle("outpost_laboratory")

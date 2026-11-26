@@ -8,6 +8,12 @@ const CardView = preload("res://scenes/presentation/card_view.tscn")
 @export var ghost_scale_in_field: float = 0.72
 @export var ghost_pointer_offset: Vector2 = Vector2(20, -24)
 @export var ghost_viewport_margin: float = 8.0
+@export var aim_line_width: float = 4.0
+@export var aim_arrow_length: float = 20.0
+@export var aim_arrow_half_width: float = 9.0
+@export var aim_minimum_bend: float = 60.0
+@export var aim_maximum_bend: float = 160.0
+@export var aim_segments: int = 32
 
 var _battle: Control
 var _hand: Control
@@ -18,6 +24,10 @@ var _consume_release: bool = false
 var _cancelling: bool = false
 var _ghost: Control
 var _source_size: Vector2 = Vector2.ZERO
+var _aiming: bool = false
+var _aim_valid: bool = false
+var _aim_scope: String = ""
+var _aim_points := PackedVector2Array()
 
 
 func _ready() -> void:
@@ -36,6 +46,10 @@ func _ready() -> void:
 
 func is_dragging() -> bool:
 	return _dragging
+
+
+func is_aiming() -> bool:
+	return _dragging and _aiming
 
 
 func has_pointer_capture() -> bool:
@@ -115,15 +129,23 @@ func _start_drag(global_point: Vector2) -> void:
 		_pressed_copy = -1
 		return
 	_dragging = true
-	_hand.set_dragged_copy(_pressed_copy)
-	_create_ghost(copy)
+	_aim_scope = str(_battle.data.definition("cards", copy.card_id).target)
+	_aiming = _aim_scope not in ["self", "none"]
+	_hand.set_dragged_copy(_pressed_copy, not _aiming)
+	if not _aiming:
+		_create_ghost(copy)
 	drag_state_changed.emit(true)
 	_update_drag(global_point)
 
 
 func _update_drag(global_point: Vector2) -> void:
 	_battle.update_card_drag(global_point)
-	if not _dragging or _ghost == null:
+	if not _dragging:
+		return
+	if _aiming:
+		_update_aim(global_point)
+		return
+	if _ghost == null:
 		return
 	var hand_point: Vector2 = _hand.get_global_transform().affine_inverse() * global_point
 	var in_hand: bool = Rect2(Vector2.ZERO, _hand.size).has_point(hand_point)
@@ -141,6 +163,49 @@ func _update_drag(global_point: Vector2) -> void:
 		position_global.y, bounds.position.y, maxf(bounds.position.y, bounds.end.y - extent.y)
 	)
 	_ghost.position = get_global_transform().affine_inverse() * position_global
+
+
+func _update_aim(global_point: Vector2) -> void:
+	var inverse: Transform2D = get_global_transform().affine_inverse()
+	var origin: Vector2 = inverse * _hand.aim_origin(_pressed_copy)
+	var destination: Vector2 = inverse * global_point
+	var difference: Vector2 = destination - origin
+	var bend: float = clampf(
+		absf(difference.x) * 0.18 + absf(difference.y) * 0.35, aim_minimum_bend, aim_maximum_bend
+	)
+	var control_start: Vector2 = origin + Vector2(0, -bend)
+	var control_end: Vector2 = destination + Vector2(-difference.x * 0.2, bend * 0.45)
+	_aim_points.clear()
+	for index in range(maxi(aim_segments, 2) + 1):
+		var t: float = float(index) / float(maxi(aim_segments, 2))
+		_aim_points.append(origin.bezier_interpolate(control_start, control_end, destination, t))
+	var target_id: String = str(_battle.hovered_target)
+	_aim_valid = target_id != "" and _battle._target_is_legal(target_id)
+	queue_redraw()
+
+
+func _draw() -> void:
+	if not is_aiming() or _aim_points.size() < 2:
+		return
+	var color_name: String = "neutral"
+	if _aim_valid:
+		color_name = "enemy" if _aim_scope == "enemy" else "ally"
+	elif str(_battle.hovered_target) != "":
+		color_name = "invalid"
+	var color: Color = get_theme_color(color_name, "TargetAim")
+	var outline: Color = get_theme_color("outline", "TargetAim")
+	draw_polyline(_aim_points, outline, aim_line_width + 4.0, true)
+	draw_polyline(_aim_points, color, aim_line_width, true)
+	var tip: Vector2 = _aim_points[_aim_points.size() - 1]
+	var tangent: Vector2 = (tip - _aim_points[_aim_points.size() - 2]).normalized()
+	var side := Vector2(-tangent.y, tangent.x)
+	var base: Vector2 = tip - tangent * aim_arrow_length
+	var arrow := PackedVector2Array(
+		[tip, base + side * aim_arrow_half_width, base - side * aim_arrow_half_width]
+	)
+	draw_colored_polygon(arrow, color)
+	arrow.append(tip)
+	draw_polyline(arrow, outline, 1.5, true)
 
 
 func _finish_pointer(global_point: Vector2) -> void:
@@ -184,6 +249,11 @@ func _clear_visuals_and_candidate() -> void:
 	var was_dragging: bool = _dragging
 	_pressed_copy = -1
 	_dragging = false
+	_aiming = false
+	_aim_valid = false
+	_aim_scope = ""
+	_aim_points.clear()
+	queue_redraw()
 	if is_instance_valid(_hand):
 		_hand.clear_dragged_copy()
 	if is_instance_valid(_ghost):

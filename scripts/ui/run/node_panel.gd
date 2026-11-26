@@ -16,11 +16,12 @@ var _token := -1
 var _submitted := false
 var _blocked := false
 var _picker_mode := ""
-var _selected_copy := -1
 var _picker_token := -1
 var _event_option := ""
 var _selected_choice := ""
 var _event_needs_selection := false
+var _card_request_id := -1
+var _card_context: Dictionary = {}
 
 
 func _ready() -> void:
@@ -32,6 +33,7 @@ func _ready() -> void:
 	$Picker.confirmed.connect(_on_picker_confirmed)
 	$Picker.canceled.connect(_clear_picker)
 	$Picker.window_input.connect(_on_picker_input)
+	$CardPicker.selected.connect(_on_card_selected)
 	resized.connect(_on_resized)
 
 
@@ -140,6 +142,7 @@ func render(state: Dictionary, data: RefCounted) -> void:
 
 func deactivate() -> void:
 	$Picker.hide()
+	$CardPicker.dismiss()
 	_clear_picker()
 
 
@@ -173,39 +176,74 @@ func _open_picker(mode: String) -> void:
 	if _blocked or _submitted or not is_visible_in_tree():
 		return
 	_clear_picker()
-	_picker_mode = mode
-	_picker_token = _token
-	var cards: Array = (
-		_state.camp.upgrade_cards if mode == "camp_upgrade" else _state.shop.removable_cards
-	)
-	if cards.is_empty():
+	if mode == "camp_upgrade":
+		if _state.get("phase") == Types.RunPhase.CAMP:
+			_open_card_picker(
+				_state.camp.upgrade_cards,
+				mode,
+				_token,
+				{
+					"mode": "upgrade",
+					"title": _data.text("ui.choose_upgrade"),
+					"context": _data.presentation_text("camp_upgrade.hint"),
+				}
+			)
 		return
-	$Picker.title = _data.text(
-		"ui.choose_upgrade" if mode == "camp_upgrade" else "ui.choose_remove"
+	if (
+		mode != "shop_remove"
+		or _state.get("phase") != Types.RunPhase.SHOP
+		or _state.gold < _state.shop.remove_cost
+	):
+		return
+	_open_card_picker(
+		_state.shop.removable_cards,
+		mode,
+		_token,
+		{
+			"mode": "remove",
+			"title": _data.text("ui.choose_remove"),
+			"context":
+			_data.presentation_text(
+				"card_picker.shop_remove.hint",
+				{"cost": _state.shop.remove_cost, "gold": _state.gold}
+			),
+		}
 	)
-	$Picker.get_ok_button().disabled = true
-	$Picker/Content/Preview.text = _data.text("ui.choose_card_copy")
-	_clear_children($Picker/Content/Scroll/Cards)
+
+
+func _open_card_picker(
+	cards: Array, action: String, token: int, options: Dictionary, event_option: String = ""
+) -> void:
+	$Picker.hide()
+	var choices: Dictionary = {}
 	for card in cards:
-		var button := Button.new()
-		button.text = str(card.before if mode == "camp_upgrade" else card.text)
-		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.pressed.connect(_on_copy_selected.bind(card.duplicate(true)))
-		$Picker/Content/Scroll/Cards.add_child(button)
-	_fit_picker()
+		var copy_id: int = int(card.get("copy_id", -1))
+		if copy_id >= 0:
+			choices[copy_id] = str(card.get("id", str(copy_id)))
+	_card_context = {"action": action, "token": token, "option": event_option, "choices": choices}
+	_card_request_id = $CardPicker.open_candidates(
+		cards, _data, _state.get("party", []), token, options
+	)
+	if _card_request_id < 0:
+		_card_context.clear()
 
 
-func _on_copy_selected(card: Dictionary) -> void:
-	if _picker_token != _token or _picker_mode == "":
+func _on_card_selected(copy_id: int, token: int, request_id: int) -> void:
+	if (
+		_card_context.is_empty()
+		or request_id != _card_request_id
+		or token != _card_context.token
+		or not $CardPicker.is_request_current(request_id, token)
+		or not _card_context.choices.has(copy_id)
+	):
 		return
-	_selected_copy = int(card.copy_id)
-	if _picker_mode == "camp_upgrade":
-		$Picker/Content/Preview.text = _data.text("ui.upgrade_compare", card)
-	else:
-		$Picker/Content/Preview.text = _data.text(
-			"ui.remove_confirm", {"card": card.text, "cost": _state.shop.remove_cost}
+	var action: String = str(_card_context.action)
+	if action == "choose_event_option":
+		_request_at_token(
+			action, str(_card_context.option), -1, token, _card_context.choices[copy_id]
 		)
-	$Picker.get_ok_button().disabled = false
+	else:
+		_request_at_token(action, "", copy_id, token)
 
 
 func _on_picker_confirmed() -> void:
@@ -214,14 +252,12 @@ func _on_picker_confirmed() -> void:
 			return
 		_request_at_token(_picker_mode, _event_option, -1, _picker_token, _selected_choice)
 		return
-	if _selected_copy < 0:
-		return
-	_request_at_token(_picker_mode, "", _selected_copy, _picker_token)
 
 
 func _clear_picker() -> void:
 	_picker_mode = ""
-	_selected_copy = -1
+	_card_request_id = -1
+	_card_context.clear()
 	_picker_token = -1
 	_event_option = ""
 	_selected_choice = ""
@@ -232,6 +268,20 @@ func _on_event_option(option: Dictionary, token: int) -> void:
 	if not is_visible_in_tree() or _blocked or _submitted or token != _token or not option.enabled:
 		return
 	_clear_picker()
+	if option.selection in ["card", "unupgraded_card"]:
+		_open_card_picker(
+			option.choices,
+			"choose_event_option",
+			token,
+			{
+				"mode": str(option.get("card_mode", "select")),
+				"title": str(option.text),
+				"context": str(option.details),
+			},
+			str(option.id)
+		)
+		return
+	$CardPicker.dismiss()
 	_picker_mode = "choose_event_option"
 	_picker_token = token
 	_event_option = str(option.id)
@@ -256,6 +306,7 @@ func _on_event_option(option: Dictionary, token: int) -> void:
 func _on_resized() -> void:
 	if $Picker.visible:
 		_fit_picker()
+	$CardPicker.fit_to_viewport()
 
 
 func _fit_picker() -> void:

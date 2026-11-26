@@ -60,6 +60,7 @@ func run_tests() -> void:
 	_test_empty_shop_slots()
 	_test_failed_shop_commit()
 	_test_event_costs_and_copies()
+	_test_event_card_modes()
 	_test_event_resolution_view()
 	_test_event_randomness()
 	_test_rewards_and_terminals()
@@ -431,6 +432,33 @@ func _test_event_costs_and_copies() -> void:
 	expect(_stable(run) == before)
 	run.gold = 100
 	var salvage := _fork(run, "salvage")
+	_copy(salvage, copies[1]).upgraded = true
+	expect(
+		(
+			_option(run, "anvil_reforge").card_mode == "upgrade"
+			and _option(salvage, "anvil_salvage").card_mode == "remove"
+		),
+		"The anvil's public choices specify definite upgrade and removal previews"
+	)
+	var found_upgraded := false
+	for choice in _option(salvage, "anvil_salvage").choices:
+		var original := _copy(salvage, int(choice.copy_id))
+		expect(
+			(
+				choice.id == str(original.copy_id)
+				and choice.card_id == original.card_id
+				and choice.upgraded == original.upgraded
+				and choice.text == data.card_text(original)
+			),
+			"Event candidates retain exact copy identities and the current upgraded card face"
+		)
+		if int(choice.copy_id) == copies[1]:
+			found_upgraded = choice.upgraded
+	expect(found_upgraded, "An upgraded duplicate remains eligible for event removal")
+	for choice in _option(salvage, "anvil_reforge").choices:
+		expect(
+			not choice.upgraded, "Upgrade eligibility remains defined by the event's selection rule"
+		)
 	token = run.action_token
 	expect(run.choose_event_option("anvil_reforge", token, str(copies[0])) == "")
 	expect(run.gold == 70 and _copy(run, copies[0]).upgraded and not _copy(run, copies[1]).upgraded)
@@ -449,6 +477,63 @@ func _test_event_costs_and_copies() -> void:
 			and not _copy(salvage, copies[0]).is_empty()
 		),
 		"Salvage removes the selected duplicate and pays once"
+	)
+
+
+func _test_event_card_modes() -> void:
+	# Future event branches are local test data; production content remains unchanged.
+	var local_data := Data.new()
+	if not expect(local_data.load_directory()):
+		return
+	var run := Run.new(local_data)
+	run.phase = Types.RunPhase.EVENT
+	run.gold = 100
+	run.deck.assign([{"copy_id": 7, "card_id": "slash", "upgraded": false}])
+	run._generate_event("event_forgotten_anvil")
+	var random_state: int = run.rng.state
+	var generated: Dictionary = run.event_state.duplicate(true)
+	var outcomes: Array = local_data.books.events.sheets.outcomes
+	var effects: Array = local_data.books.events.sheets.effects
+	var branch: Dictionary = local_data.event_outcomes("anvil_reforge")[0].duplicate(true)
+	branch.id = "anvil_reforge.future"
+	outcomes.append(branch)
+	expect(
+		_option(run, "anvil_reforge").card_mode == "select",
+		"A public failure branch without a card change must not promise an upgrade"
+	)
+	var effect: Dictionary = local_data.event_effects("anvil_reforge.1")[0].duplicate(true)
+	effect.id = "anvil_reforge.future.1"
+	effect.outcome_id = branch.id
+	effects.append(effect)
+	expect(
+		_option(run, "anvil_reforge").card_mode == "upgrade",
+		"Multiple public branches may share the same guaranteed upgrade preview"
+	)
+	effect.kind = "remove"
+	expect(
+		_option(run, "anvil_reforge").card_mode == "select",
+		"Mixed upgrade and removal branches use neutral selection"
+	)
+	expect(
+		run.rng.state == random_state and run.event_state == generated,
+		"Reading candidate modes neither consumes randomness nor changes stored outcomes"
+	)
+	run.event_state.results.anvil_reforge.outcome_id = branch.id
+	expect(
+		_option(run, "anvil_reforge").card_mode == "select" and run.rng.state == random_state,
+		"Changing the hidden chosen branch cannot change the public preview mode"
+	)
+	effect.kind = "upgrade"
+	var second_effect: Dictionary = effect.duplicate(true)
+	second_effect.id = "anvil_reforge.future.2"
+	second_effect.order = int(effect.order) + 1
+	effects.append(second_effect)
+	expect(
+		_option(run, "anvil_reforge").card_mode == "select",
+		"A multi-step card transformation cannot be represented as a single upgrade preview"
+	)
+	expect(
+		_option(run, "anvil_leave").card_mode == "", "No-target options keep ordinary confirmation"
 	)
 
 

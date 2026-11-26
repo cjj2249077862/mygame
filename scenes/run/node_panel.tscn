@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/run/node_panel.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/run/card_picker.tscn" id="2"]
 
 [node name="NodePanel" type="PanelContainer"]
 script = ExtResource("1")
@@ -82,3 +83,5 @@ size_flags_horizontal = 3
 [node name="Preview" type="RichTextLabel" parent="Picker/Content"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 170)
+
+[node name="CardPicker" parent="." instance=ExtResource("2")]

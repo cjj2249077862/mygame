@@ -35,9 +35,10 @@ func layout_stage() -> void:
 	)
 	_set_rect($HandScroll/Hand, Rect2(Vector2.ZERO, $HandScroll.size))
 	_set_rect($Actions, Rect2(Vector2.ZERO, size))
-	_set_rect($Energy, Rect2(18, size.y - 242, 124, 124))
-	_set_rect($Actions/Piles, Rect2(5, size.y - 117, rail_width - 12, 40))
-	_set_rect($Actions/Discard, Rect2(5, size.y - 72, rail_width - 12, 40))
+	_set_rect($Energy, Rect2(18, size.y - 278, 116, 116))
+	_set_rect($Actions/Piles, Rect2(5, size.y - 151, rail_width - 12, 40))
+	_set_rect($Actions/Discard, Rect2(5, size.y - 106, rail_width - 12, 40))
+	_set_rect($Actions/Exhaust, Rect2(5, size.y - 61, rail_width - 12, 40))
 	_set_rect($Actions/Fast, Rect2(size.x - rail_width, size.y - 54, rail_width, 42))
 	_set_rect($Actions/EndTurn, Rect2(size.x - rail_width, size.y - 160, rail_width, 64))
 	_set_rect($Actions/Cancel, Rect2(size.x - rail_width, size.y - 94, rail_width, 36))
@@ -85,6 +86,7 @@ func _draw() -> void:
 	draw_polyline(rim, rim_color, 2, true)
 	if is_node_ready():
 		var center: Vector2 = $Energy.position + $Energy.size * 0.5
-		draw_circle(center, 65, Color(0.015, 0.045, 0.08, 0.97))
-		draw_arc(center, 63, 0, TAU, 80, rim_color, 4, true)
-		draw_arc(center, 68, 0, TAU, 80, Color(0.3, 0.24, 0.17, 1), 1, true)
+		var radius: float = $Energy.size.x * 0.5
+		draw_circle(center, radius + 3, Color(0.015, 0.045, 0.08, 0.97))
+		draw_arc(center, radius + 1, 0, TAU, 80, rim_color, 4, true)
+		draw_arc(center, radius + 6, 0, TAU, 80, Color(0.3, 0.24, 0.17, 1), 1, true)

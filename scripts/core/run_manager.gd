@@ -811,10 +811,43 @@ func _event_choices(option: Dictionary) -> Array:
 				detail = data.text(
 					"run.upgrade_compare", {"before": detail, "after": data.card_text(upgraded)}
 				)
-			choices.append(
-				{"id": str(copy.copy_id), "text": data.card_text(copy), "details": detail}
+			(
+				choices
+				. append(
+					{
+						"id": str(copy.copy_id),
+						"copy_id": copy.copy_id,
+						"card_id": copy.card_id,
+						"upgraded": copy.upgraded,
+						"text": data.card_text(copy),
+						"details": detail,
+					}
+				)
 			)
 	return choices
+
+
+func _event_card_mode(option: Dictionary) -> String:
+	if option.selection not in ["card", "unupgraded_card"]:
+		return ""
+	# A definite preview must hold for every public branch, never the stored random result.
+	var mode := ""
+	for outcome in data.event_outcomes(option.id):
+		if float(outcome.weight) <= 0.0:
+			continue
+		var count := 0
+		var branch_mode := ""
+		for effect in data.event_effects(outcome.id):
+			if effect.target != "selected_card":
+				continue
+			count += 1
+			if effect.kind not in ["upgrade", "remove"]:
+				return "select"
+			branch_mode = str(effect.kind)
+		if count != 1 or (mode != "" and mode != branch_mode):
+			return "select"
+		mode = branch_mode
+	return mode if mode != "" else "select"
 
 
 func _event_error(
@@ -969,6 +1002,8 @@ func view_snapshot() -> Dictionary:
 			upgrades.append(
 				{
 					"copy_id": copy.copy_id,
+					"card_id": copy.card_id,
+					"upgraded": copy.upgraded,
 					"before": data.card_text(copy),
 					"after": data.card_text(after)
 				}
@@ -995,7 +1030,17 @@ func view_snapshot() -> Dictionary:
 			)
 			offers.append(offer)
 		for copy in deck:
-			removable.append({"copy_id": copy.copy_id, "text": data.card_text(copy)})
+			(
+				removable
+				. append(
+					{
+						"copy_id": copy.copy_id,
+						"card_id": copy.card_id,
+						"upgraded": copy.upgraded,
+						"text": data.card_text(copy),
+					}
+				)
+			)
 		view.shop = {
 			"offers": offers,
 			"refresh_cost": _refresh_price(),
@@ -1015,6 +1060,7 @@ func view_snapshot() -> Dictionary:
 					"enabled": reason == "",
 					"error": reason,
 					"selection": option.selection,
+					"card_mode": _event_card_mode(option),
 					"choices": _event_choices(option)
 				}
 			)

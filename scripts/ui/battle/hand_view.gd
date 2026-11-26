@@ -4,6 +4,7 @@ signal card_selected(copy_id: int)
 
 const CardView = preload("res://scenes/presentation/card_view.tscn")
 const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
+const CardOrder = preload("res://scripts/ui/presentation/card_order.gd")
 @export var card_minimum_size: Vector2
 @export var hover_scale: float
 @export var hover_lift: float
@@ -16,6 +17,7 @@ const HoverHelp = preload("res://scripts/ui/presentation/hover_help.gd")
 var _hovered: Control
 var _layout_tweens: Dictionary = {}
 var _dragged_copy_id: int = -1
+var _hide_dragged_card: bool = true
 var _pointer_input_managed: bool = false
 var _slot_bounds: Dictionary = {}
 var _hit_regions: Dictionary = {}
@@ -51,7 +53,7 @@ func render(hand: Array, data: RefCounted, engine: RefCounted, locked: bool, sel
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	for copy in hand:
+	for copy in sorted_cards(hand, data, engine.state.heroes):
 		var button: Button = CardView.instantiate()
 		button.layout_owner = self
 		button.custom_minimum_size = card_minimum_size
@@ -84,6 +86,10 @@ func render(hand: Array, data: RefCounted, engine: RefCounted, locked: bool, sel
 	_apply_drag_visibility()
 	layout_cards()
 	layout_cards.call_deferred()
+
+
+func sorted_cards(cards: Array, data: RefCounted, heroes: Array) -> Array:
+	return CardOrder.sorted_cards(cards, data, heroes)
 
 
 func set_pointer_input_managed(managed: bool) -> void:
@@ -148,23 +154,35 @@ func _set_hovered_card(card: Control) -> void:
 	layout_cards(true)
 
 
-func set_dragged_copy(copy_id: int) -> void:
+func set_dragged_copy(copy_id: int, hide_card: bool = true) -> void:
 	_dragged_copy_id = copy_id
+	_hide_dragged_card = hide_card
 	_set_hovered_card(null)
 	_apply_drag_visibility()
+	layout_cards()
 
 
 func clear_dragged_copy() -> void:
 	_dragged_copy_id = -1
+	_hide_dragged_card = true
 	_apply_drag_visibility()
 	_hovered = null
 	layout_cards()
 
 
+func aim_origin(copy_id: int) -> Vector2:
+	for card in get_children():
+		if int(card.get_meta("copy_id", -1)) == copy_id:
+			return card.get_global_transform() * Vector2(card.size.x * 0.5, 0.0)
+	return get_global_transform() * Vector2(size.x * 0.5, 0.0)
+
+
 func _apply_drag_visibility() -> void:
 	for card in get_children():
 		var hidden_for_drag: bool = (
-			int(card.get_meta("copy_id", -1)) == _dragged_copy_id and _dragged_copy_id >= 0
+			_hide_dragged_card
+			and int(card.get_meta("copy_id", -1)) == _dragged_copy_id
+			and _dragged_copy_id >= 0
 		)
 		card.modulate.a = 0.0 if hidden_for_drag else 1.0
 		card.set_drag_suppressed(_dragged_copy_id >= 0)
@@ -215,7 +233,14 @@ func layout_cards(animated: bool = false) -> void:
 			rotation_goal = 0.0
 			scale_goal = Vector2.ONE * hover_scale
 			card.z_index = 100
-		elif card.button_pressed:
+		elif (
+			card.button_pressed
+			or (
+				_dragged_copy_id >= 0
+				and not _hide_dragged_card
+				and int(card.get_meta("copy_id", -1)) == _dragged_copy_id
+			)
+		):
 			position_goal.y -= selected_lift
 			rotation_goal *= 0.4
 			scale_goal = Vector2.ONE * 1.025

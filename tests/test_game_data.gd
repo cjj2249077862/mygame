@@ -40,6 +40,8 @@ func run_tests() -> void:
 	expect(data.validate(good), str(data.errors))
 	_test_additional_validation(data, good)
 	_test_keyword_details(data)
+	_test_card_description_and_traits(data)
+	_test_relic_mechanic_help(data)
 	_test_number_presentation(data)
 	_test_phase_two_data(data, good)
 	_test_query_isolation(data, good)
@@ -259,6 +261,111 @@ func _test_number_presentation(data: RefCounted) -> void:
 		values.cost is float and values.energy is float,
 		"Presentation does not modify caller-owned numeric values"
 	)
+
+
+func _test_card_description_and_traits(data: RefCounted) -> void:
+	for definition in data.rows("cards"):
+		for upgraded in [false, true]:
+			var copy: Dictionary = Models.card(41, definition.id, upgraded)
+			var before: Dictionary = copy.duplicate(true)
+			var description: String = data.card_description(copy)
+			var traits: Array[Dictionary] = data.card_traits(copy)
+			var ids: Array[String] = _help_ids(traits)
+			expect(
+				not description.is_empty() and not description.contains("{"),
+				"Every normal/upgraded card has a complete standalone effect description"
+			)
+			expect(
+				data.card_text(copy).ends_with(description),
+				"The split effect body preserves the existing full card text"
+			)
+			for flag in ["retain", "exhaust"]:
+				expect(
+					ids.has("keyword." + flag) == bool(definition[flag]),
+					"Footer traits reflect actual flags instead of searching card names or descriptions"
+				)
+			for card_trait in traits:
+				expect(
+					(
+						not str(card_trait.title).is_empty()
+						and not str(card_trait.body).is_empty()
+						and data.card_sections(copy).has(card_trait)
+					),
+					"Footer labels share the same detailed keyword rule as hover help"
+				)
+			expect(copy == before, "Rendering separated body and traits does not mutate the copy")
+	expect(data.card_traits({"card_id": "missing"}).is_empty())
+	expect(data.card_description(Models.card(1, "heal")) == "恢复最多 14 点生命。")
+	expect(
+		data.card_description(Models.card(1, "heal", true)) == "恢复最多 18 点生命。",
+		"Standalone descriptions read the upgrade's actual configured values"
+	)
+
+
+func _test_relic_mechanic_help(data: RefCounted) -> void:
+	var expected := {
+		"sentry_lens": ["keyword.draw"],
+		"shock_ring": ["keyword.draw", "keyword.interrupt"],
+		"purge_charm": ["keyword.dispel"],
+		"boss_furnace": ["keyword.draw", "keyword.energy"],
+		"boss_tome": ["keyword.draw"],
+		"tank_buckle": ["relic.first_bonus"],
+		"assassin_seal": ["relic.first_bonus", "relic.direct_damage"],
+		"mercy_charm": ["relic.first_bonus"],
+		"weapon_stone": ["relic.direct_damage"],
+		"quiet_incense": ["keyword.regen"]
+	}
+	for id in expected:
+		var sections: Array[Dictionary] = data.relic_sections(id)
+		var ids: Array[String] = _help_ids(sections)
+		for keyword in expected[id]:
+			expect(ids.has(keyword), "Relic explains its effect and triggering mechanic: " + id)
+		var plain: String = data.relic_text(id)
+		for section in sections:
+			expect(
+				plain.contains(section.title) and plain.contains(section.body),
+				"Inspect text and hover cards share the complete relic explanation"
+			)
+			expect(
+				not section.body.contains("hover.relic.") and not section.body.contains("{"),
+				"Relic help resolves its presentation text and rule parameters"
+			)
+	expect(
+		data.relic_text("sentry_lens").contains("第一回合基础抽牌后额外抽 1 张牌"),
+		"The main effect keeps its actual count and trigger timing"
+	)
+	expect(data.relic_text("boss_furnace").contains("基础抽牌数调整 -1"))
+	expect(
+		data.relic_text("boss_tome").contains(str(int(data.rule("hand_limit")))),
+		"Draw explanations use the configured hand limit"
+	)
+	expect(
+		data.relic_sections("iron_rivet").size() == 1,
+		"An ordinary shield relic keeps its clear main effect without unrelated rules"
+	)
+	expect(
+		not _help_ids(data.card_sections(Models.card(1, "tactic_plan"))).has("keyword.draw"),
+		"Adding relic detail does not restore repetitive basic rules to ordinary cards"
+	)
+	var local_data := Data.new()
+	if not expect(local_data.load_directory()):
+		return
+	for effect in local_data.books.relics.sheets.effects:
+		if effect.group_id == "sentry_lens.effects":
+			effect.kind = "shield"
+			break
+	expect(
+		not _help_ids(local_data.relic_sections("sentry_lens")).has("keyword.draw"),
+		"Relevant rules follow effect configuration instead of hardcoded relic IDs"
+	)
+
+
+func _help_ids(sections: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for section in sections:
+		expect(not ids.has(str(section.id)), "Each mechanic has exactly one explanation")
+		ids.append(str(section.id))
+	return ids
 
 
 func _test_bundle_rejection(data: RefCounted, good: Dictionary) -> void:
