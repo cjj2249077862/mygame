@@ -40,6 +40,7 @@ func run_tests() -> void:
 	expect(data.validate(good), str(data.errors))
 	_test_additional_validation(data, good)
 	_test_keyword_details(data)
+	_test_number_presentation(data)
 	_test_bundle_rejection(data, good)
 	_test_heal_export_to_presentation(good)
 
@@ -116,6 +117,28 @@ func _test_keyword_details(data: RefCounted) -> void:
 	expect(data.status_details("weak").contains("75"))
 
 
+func _test_number_presentation(data: RefCounted) -> void:
+	var values := {"cost": 1.0, "energy": 0.0}
+	expect(
+		(
+			data.text("ui.preview_cost", values)
+			== data.text("ui.preview_cost", {"cost": "1", "energy": "0"})
+		),
+		"Whole JSON numbers render without a decimal suffix"
+	)
+	expect(
+		(
+			data.text("status_desc.weak", {"percent": 75.5, "decay": 1.0})
+			== data.text("status_desc.weak", {"percent": "75.5", "decay": "1"})
+		),
+		"Fractional percentages retain their configured value"
+	)
+	expect(
+		values.cost is float and values.energy is float,
+		"Presentation does not modify caller-owned numeric values"
+	)
+
+
 func _test_bundle_rejection(data: RefCounted, good: Dictionary) -> void:
 	var directory := "user://phase1_data_fixture_%d" % Time.get_ticks_usec()
 	expect(DirAccess.make_dir_recursive_absolute(directory) == OK)
@@ -162,9 +185,10 @@ func _test_heal_export_to_presentation(good: Dictionary) -> void:
 		_remove_data_fixture(directory)
 		return
 	var card := Models.card(9000, "heal")
+	var face := loaded.card_text(card)
 	expect(
-		loaded.card_text(card).contains("最多 18 点"),
-		"Card face uses the reloaded source value, not the old 14-point value"
+		face.contains("最多 18 点"),
+		"Card face uses the reloaded source value, not the old 14-point value: %s" % face
 	)
 	for missing_hp in [20, 2]:
 		var expected_heal: int = 18 if missing_hp == 20 else 2

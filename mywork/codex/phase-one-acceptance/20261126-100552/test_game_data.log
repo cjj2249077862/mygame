@@ -1,0 +1,10 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+ERROR: Card face uses the reloaded source value, not the old 14-point value
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] expect (res://tests/test_suite.gd:20)
+       [1] _test_heal_export_to_presentation (res://tests/test_game_data.gd:165)
+       [2] run_tests (res://tests/test_game_data.gd:44)
+       [3] _run_suite (res://tests/test_suite.gd:25)
+RAIDDECK_TEST_RESULT {"assertions":77,"failures":["Card face uses the reloaded source value, not the old 14-point value"],"passed":false,"suite":"test_game_data"}

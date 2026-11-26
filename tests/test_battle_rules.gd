@@ -678,7 +678,7 @@ func _test_rule_preview_and_lifetime() -> void:
 	expect(detached.play_card(1000, "warden", "warden") == "")
 	var events: RefCounted = detached.events
 	var resolver: RefCounted = detached.resolver
-	var owner := weakref(detached)
+	var owner: WeakRef = weakref(detached)
 	detached = null
 	expect(owner.get_ref() == null and resolver.engine == null)
 	expect(not events.records.is_empty())

@@ -1,0 +1,76 @@
+{
+  "started": "20261126-100552",
+  "mode": "engine",
+  "source_sha256": "905d8534c5b5db42e8d87aa1c800bf9bfe792428e81b4c545e46ba94283fdff3",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 26
+    },
+    {
+      "name": "godot_import",
+      "passed": true
+    },
+    {
+      "name": "test_game_data",
+      "passed": false,
+      "detail": "nonzero_exit"
+    },
+    {
+      "name": "test_battle_rules",
+      "passed": false,
+      "detail": "nonzero_exit"
+    },
+    {
+      "name": "test_run_flow",
+      "passed": true,
+      "detail": {
+        "assertions": 35,
+        "failures": [],
+        "passed": true,
+        "suite": "test_run_flow"
+      }
+    },
+    {
+      "name": "test_battle_ui",
+      "passed": true,
+      "detail": {
+        "assertions": 76,
+        "failures": [],
+        "passed": true,
+        "suite": "test_battle_ui"
+      }
+    },
+    {
+      "name": "test_battle_sim",
+      "passed": true,
+      "detail": {
+        "assertions": 66,
+        "failures": [],
+        "passed": true,
+        "suite": "test_battle_sim"
+      }
+    }
+  ],
+  "human_review": "pending",
+  "phase_one_accepted": false,
+  "status": "failed",
+  "source_unchanged": true
+}

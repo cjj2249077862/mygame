@@ -438,7 +438,14 @@ func rule(id: String) -> float:
 
 
 func text(key: String, values: Dictionary = {}) -> String:
-	return str(definition("texts_zh_cn", key).get("text", key)).format(values)
+	var rendered_values := values.duplicate()
+	for parameter in rendered_values:
+		var value: Variant = rendered_values[parameter]
+		# JSON numbers load as floats. Display whole counts without a decimal
+		# suffix while keeping fractional percentages and other values intact.
+		if value is float and is_finite(value) and value == floorf(value):
+			rendered_values[parameter] = int(value)
+	return str(definition("texts_zh_cn", key).get("text", key)).format(rendered_values)
 
 
 func card_effects(id: String, upgraded: bool) -> Array:

@@ -1,0 +1,36 @@
+{
+  "started": "20261126-100516",
+  "mode": "engine",
+  "source_sha256": "905d8534c5b5db42e8d87aa1c800bf9bfe792428e81b4c545e46ba94283fdff3",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 26
+    },
+    {
+      "name": "godot_import",
+      "passed": false
+    }
+  ],
+  "human_review": "pending",
+  "phase_one_accepted": false,
+  "status": "failed",
+  "source_unchanged": true
+}
