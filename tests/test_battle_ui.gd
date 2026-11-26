@@ -38,6 +38,9 @@ func run_tests() -> void:
 	await _test_rebuild_during_presentation()
 	await _test_keyword_details()
 	await _test_resize()
+	app.get_node("AudioDirector").stop_all()
+	# Let the audio mixer release stopped playback before this suite exits.
+	await create_timer(0.1).timeout
 	app.queue_free()
 	await process_frame
 

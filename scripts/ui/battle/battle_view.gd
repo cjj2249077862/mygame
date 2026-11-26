@@ -5,6 +5,7 @@ signal presentation_event(record: Dictionary, fast: bool)
 
 const Types = preload("res://scripts/core/enums.gd")
 const UnitView = preload("res://scenes/battle/unit_view.tscn")
+const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 @export var event_duration: float
 @export var fast_event_duration: float
 @export var shake_angle: float
@@ -50,6 +51,10 @@ func _ready() -> void:
 	cast_button.mouse_entered.connect(_on_cast_hovered)
 	$Margin/Content/Actions/Cancel.pressed.connect(clear_selection)
 	$Margin/Content/Actions/Piles.pressed.connect(_on_piles_pressed)
+	$Margin/Content/Actions/Discard.pressed.connect(_on_piles_pressed)
+	$Margin/Content/Actions/Piles.icon = Art.icon_texture("draw")
+	$Margin/Content/Actions/Discard.icon = Art.icon_texture("discard")
+	$Margin/Content/Energy.texture = Art.icon_texture("energy")
 	$EndConfirm.confirmed.connect(_end_turn)
 	$DispelConfirm.confirmed.connect(_on_dispel_confirmed)
 	$DispelConfirm.canceled.connect(clear_selection)
@@ -199,7 +204,17 @@ func refresh() -> void:
 							)
 						)
 			view.render(unit, data, engine, highlighted, unit.id == selected_caster)
+			view.configure_stage(str(unit.definition_id).begins_with("boss_"))
 	hand.render(state.hand, data, engine, locked or externally_blocked, selected_copy)
+	$Margin/Content/Energy/Value.text = str(int(state.energy))
+	$Margin/Content/Energy.tooltip_text = $Margin/Content/Header.text
+	$Margin/Content/Actions/Piles.text = (
+		data.text("ui.pile.draw").get_slice("（", 0) + "  " + str(state.draw.size())
+	)
+	$Margin/Content/Actions/Piles.tooltip_text = data.text("ui.piles")
+	$Margin/Content/Actions/Discard.text = (
+		data.text("ui.pile.discard") + "  " + str(state.discard.size())
+	)
 	end_button.disabled = locked or externally_blocked or state.phase != Types.BattlePhase.PLAYER
 	cast_button.visible = (
 		selected_copy >= 0
@@ -212,6 +227,7 @@ func refresh() -> void:
 		)
 	)
 	cast_button.disabled = locked or externally_blocked
+	$Margin/Content.layout_stage()
 	queue_redraw()
 
 
@@ -389,7 +405,18 @@ func _play(target_id: String, status: String = "") -> void:
 	if locked or externally_blocked or not _active or selected_copy < 0:
 		return
 	var caster_id: String = selected_caster
-	_pending_card = {"kind": "card_play", "source": caster_id, "target": target_id}
+	var origin: Vector2 = _feedback_center(hand)
+	for card in hand.get_children():
+		if int(card.get_meta("copy_id", -1)) == selected_copy:
+			origin = _feedback_center(card)
+			break
+	_pending_card = {
+		"kind": "card_play",
+		"source": caster_id,
+		"target": target_id,
+		"card": engine.find_card(selected_copy).duplicate(true),
+		"origin": origin,
+	}
 	locked = true
 	var error: String = engine.play_card(selected_copy, caster_id, target_id, status)
 	if error != "":
@@ -501,6 +528,7 @@ func _caster_is_legal(caster_id: String) -> bool:
 
 func _on_layout_changed() -> void:
 	# Containers finish child placement after their current resize notification.
+	$Margin/Content.layout_stage.call_deferred()
 	queue_redraw.call_deferred()
 	if $Piles.visible:
 		_popup_sized($Piles, piles_preferred_size)
@@ -516,6 +544,13 @@ func _unit_views() -> Dictionary:
 	return views
 
 
+func _feedback_center(control: Control) -> Vector2:
+	return (
+		$Feedback.get_global_transform().affine_inverse()
+		* (control.get_global_transform() * (control.size * 0.5))
+	)
+
+
 func _present_record(record: Dictionary, fast: bool) -> void:
 	var views: Dictionary = _unit_views()
 	var kind: String = record.kind
@@ -523,14 +558,19 @@ func _present_record(record: Dictionary, fast: bool) -> void:
 	var target_id: String = str(record.get("target", ""))
 	if kind in ["card_play", "damage", "heal", "shield", "revive"] and views.has(source_id):
 		views[source_id].play_cue("cast", fast)
+	if kind == "card_play" and record.has("card") and views.has(source_id):
+		var destination: Vector2 = _feedback_center(views[source_id])
+		$Feedback.show_card(record.card, data, record.origin, destination, fast)
 	if views.has(target_id) and kind != "card_play":
 		var hp_loss: int = int(record.get("hp_loss", record.get("amount", 0)))
 		var shield_loss: int = int(record.get("shield_loss", 0))
 		var cue: String = "block" if kind == "damage" and hp_loss == 0 and shield_loss > 0 else kind
 		views[target_id].play_cue(cue, fast)
-		var origin: Vector2 = (
-			views[target_id].get_global_rect().get_center() - $Feedback.global_position
-		)
+		var origin: Vector2 = _feedback_center(views[target_id])
+		var source: Vector2 = origin
+		if views.has(source_id):
+			source = _feedback_center(views[source_id])
+		$Feedback.show_effect(cue, source, origin, fast)
 		if kind == "damage":
 			if shield_loss > 0:
 				$Feedback.show_number(
@@ -635,19 +675,25 @@ func _center_popup(dialog: Window) -> void:
 
 
 func _draw() -> void:
+	$TargetLines.queue_redraw()
+
+
+func draw_target_lines(canvas: Control) -> void:
 	if not _active or engine == null or not engine.state.has("enemies"):
 		return
 	var views: Dictionary = _unit_views()
 	for enemy_id in _intent_lines:
 		for destination in _intent_lines[enemy_id]:
-			_draw_target_line(views, str(enemy_id), str(destination), "intent_line", 2)
+			_draw_target_line(views, str(enemy_id), str(destination), "intent_line", 2, canvas)
 	if not locked and not externally_blocked and selected_copy >= 0 and selected_caster != "":
 		var copy: Dictionary = engine.find_card(selected_copy)
 		if not copy.is_empty() and data.definition("cards", copy.card_id).target == "none":
 			for destination in engine.action_targets(
 				selected_copy, selected_caster, selected_caster
 			):
-				_draw_target_line(views, selected_caster, str(destination), "target_line", 3)
+				_draw_target_line(
+					views, selected_caster, str(destination), "target_line", 3, canvas
+				)
 	var target_id: String = pending_target if pending_target != "" else hovered_target
 	if (
 		not locked
@@ -656,14 +702,41 @@ func _draw() -> void:
 		and views.has(selected_caster)
 		and views.has(target_id)
 	):
-		_draw_target_line(views, selected_caster, target_id, "target_line", 3)
+		_draw_target_line(views, selected_caster, target_id, "target_line", 3, canvas)
 
 
 func _draw_target_line(
-	views: Dictionary, source_id: String, target_id: String, color_key: String, width: float
+	views: Dictionary,
+	source_id: String,
+	target_id: String,
+	color_key: String,
+	width: float,
+	canvas: Control
 ) -> void:
 	if source_id == target_id or not views.has(source_id) or not views.has(target_id):
 		return
-	var start: Vector2 = views[source_id].get_global_rect().get_center() - global_position
-	var finish: Vector2 = views[target_id].get_global_rect().get_center() - global_position
-	draw_line(start, finish, get_theme_color(color_key, "BattleView"), width)
+	var source: Rect2 = views[source_id].get_global_rect()
+	var target: Rect2 = views[target_id].get_global_rect()
+	var start: Vector2 = source.position + source.size * Vector2(0.5, 0.22) - global_position
+	var finish: Vector2 = target.position + target.size * Vector2(0.5, 0.28) - global_position
+	var bend: Vector2 = (
+		(start + finish) * 0.5 - Vector2(0, minf(100, absf(finish.x - start.x) * 0.16))
+	)
+	var points: PackedVector2Array = PackedVector2Array()
+	for index in range(33):
+		var t: float = float(index) / 32.0
+		points.append(start.lerp(bend, t).lerp(bend.lerp(finish, t), t))
+	var color: Color = get_theme_color(color_key, "BattleView")
+	canvas.draw_polyline(points, color, width, true)
+	var direction: Vector2 = (finish - points[31]).normalized()
+	var perpendicular: Vector2 = direction.orthogonal()
+	canvas.draw_colored_polygon(
+		PackedVector2Array(
+			[
+				finish,
+				finish - direction * 13 + perpendicular * 5,
+				finish - direction * 13 - perpendicular * 5
+			]
+		),
+		color
+	)

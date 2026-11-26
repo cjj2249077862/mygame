@@ -1,9 +1,23 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/battle/battle_view.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/battle/hand_view.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/battle/battle_log.tscn" id="3"]
 [ext_resource type="Script" path="res://scripts/ui/presentation/battle_feedback.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/ui/presentation/battle_stage.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/ui/presentation/target_lines.gd" id="6"]
+
+[sub_resource type="StyleBoxFlat" id="EndButton"]
+bg_color = Color(0.24, 0.095, 0.055, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.53, 0.28, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_left = 12
+corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="FeedbackPanel"]
 bg_color = Color(0.035, 0.045, 0.06, 0.92)
@@ -39,85 +53,119 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
 mouse_filter = 2
 
-[node name="Content" type="VBoxContainer" parent="Margin"]
+[node name="Content" type="Control" parent="Margin"]
 layout_mode = 2
 mouse_filter = 2
+script = ExtResource("5")
+hand_height = 310.0
+rail_width = 170.0
+stage_gap = 32.0
 
 [node name="Header" type="Label" parent="Margin/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-
-[node name="Middle" type="HBoxContainer" parent="Margin/Content"]
-layout_mode = 2
-size_flags_vertical = 3
+layout_mode = 0
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
+horizontal_alignment = 1
 mouse_filter = 2
 
-[node name="Field" type="HBoxContainer" parent="Margin/Content/Middle"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 4
-theme_override_constants/separation = 44
+[node name="Middle" type="Control" parent="Margin/Content"]
+layout_mode = 0
 mouse_filter = 2
 
-[node name="Heroes" type="HBoxContainer" parent="Margin/Content/Middle/Field"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="Field" type="Control" parent="Margin/Content/Middle"]
+layout_mode = 0
 mouse_filter = 2
 
-[node name="Enemies" type="HBoxContainer" parent="Margin/Content/Middle/Field"]
-layout_mode = 2
-size_flags_horizontal = 3
-alignment = 2
+[node name="Heroes" type="Control" parent="Margin/Content/Middle/Field"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Enemies" type="Control" parent="Margin/Content/Middle/Field"]
+layout_mode = 0
 mouse_filter = 2
 
 [node name="Log" parent="Margin/Content/Middle" instance=ExtResource("3")]
 custom_minimum_size = Vector2(230, 0)
-layout_mode = 2
+layout_mode = 0
+z_index = 30
 
 [node name="Hint" type="Label" parent="Margin/Content"]
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
+layout_mode = 0
+theme_override_font_sizes/font_size = 15
 autowrap_mode = 3
-
-[node name="HandScroll" type="ScrollContainer" parent="Margin/Content"]
-custom_minimum_size = Vector2(0, 180)
-layout_mode = 2
-vertical_scroll_mode = 0
-
-[node name="Hand" parent="Margin/Content/HandScroll" instance=ExtResource("2")]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Actions" type="HBoxContainer" parent="Margin/Content"]
-layout_mode = 2
-
-[node name="Piles" type="Button" parent="Margin/Content/Actions"]
-layout_mode = 2
-
-[node name="Fast" type="CheckButton" parent="Margin/Content/Actions"]
-layout_mode = 2
-
-[node name="Spacer" type="Control" parent="Margin/Content/Actions"]
-layout_mode = 2
-size_flags_horizontal = 3
+horizontal_alignment = 1
+text_overrun_behavior = 3
+max_lines_visible = 2
 mouse_filter = 2
 
+[node name="HandScroll" type="Control" parent="Margin/Content"]
+layout_mode = 0
+mouse_filter = 2
+z_index = 5
+
+[node name="Hand" parent="Margin/Content/HandScroll" instance=ExtResource("2")]
+layout_mode = 0
+
+[node name="Actions" type="Control" parent="Margin/Content"]
+layout_mode = 0
+mouse_filter = 2
+z_index = 6
+
+[node name="Piles" type="Button" parent="Margin/Content/Actions"]
+layout_mode = 0
+theme_override_font_sizes/font_size = 15
+expand_icon = true
+theme_override_constants/icon_max_width = 26
+
+[node name="Discard" type="Button" parent="Margin/Content/Actions"]
+layout_mode = 0
+theme_override_font_sizes/font_size = 15
+expand_icon = true
+theme_override_constants/icon_max_width = 26
+
+[node name="Fast" type="CheckButton" parent="Margin/Content/Actions"]
+layout_mode = 0
+theme_override_font_sizes/font_size = 14
+
 [node name="Cancel" type="Button" parent="Margin/Content/Actions"]
-layout_mode = 2
+layout_mode = 0
+theme_override_font_sizes/font_size = 14
 
 [node name="Cast" type="Button" parent="Margin/Content/Actions"]
 visible = false
-layout_mode = 2
+layout_mode = 0
 
 [node name="EndTurn" type="Button" parent="Margin/Content/Actions"]
-custom_minimum_size = Vector2(160, 50)
-layout_mode = 2
+layout_mode = 0
+theme_override_font_sizes/font_size = 23
+theme_override_styles/normal = SubResource("EndButton")
+
+[node name="Energy" type="TextureRect" parent="Margin/Content"]
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+z_index = 5
+
+[node name="Value" type="Label" parent="Margin/Content/Energy"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 32
+theme_override_colors/font_outline_color = Color(0.02, 0.05, 0.1, 1)
+theme_override_constants/outline_size = 7
 
 [node name="EndConfirm" type="ConfirmationDialog" parent="."]
 size = Vector2i(500, 160)
@@ -170,6 +218,9 @@ float_distance = 46.0
 float_duration = 0.55
 banner_duration = 2.2
 
+[node name="Effects" type="Node2D" parent="Feedback"]
+z_index = -1
+
 [node name="Numbers" type="Control" parent="Feedback"]
 layout_mode = 1
 anchors_preset = 15
@@ -181,10 +232,10 @@ mouse_filter = 2
 visible = false
 layout_mode = 1
 anchors_preset = 10
-anchor_left = 0.15
-anchor_right = 0.85
-offset_top = 64.0
-offset_bottom = 148.0
+anchor_left = 0.3
+anchor_right = 0.7
+offset_top = 30.0
+offset_bottom = 104.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("FeedbackPanel")
 
@@ -194,3 +245,12 @@ theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 vertical_alignment = 1
 mouse_filter = 2
+
+[node name="TargetLines" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+z_index = 2
+script = ExtResource("6")

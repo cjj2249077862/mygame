@@ -224,6 +224,9 @@ func _on_run_changed() -> void:
 		return
 	$Menu.visible = _showing_menu
 	$Battle.visible = not _showing_menu and state.phase == Types.RunPhase.BATTLE
+	$Background.modulate = (
+		Color(0.92, 0.94, 0.98, 1) if $Battle.visible else Color(0.42, 0.45, 0.5, 1)
+	)
 	$Reward.visible = not _showing_menu and state.phase == Types.RunPhase.REWARD
 	$Map.visible = not _showing_menu and state.phase == Types.RunPhase.MAP
 	$NodePanel.visible = (

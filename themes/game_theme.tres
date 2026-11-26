@@ -1,7 +1,7 @@
 [gd_resource type="Theme" load_steps=5 format=3]
 
 [sub_resource type="StyleBoxFlat" id="Panel"]
-bg_color = Color(0.055, 0.07, 0.09, 0.94)
+bg_color = Color(0.045, 0.045, 0.05, 0.95)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -17,12 +17,12 @@ content_margin_top = 10.0
 content_margin_bottom = 10.0
 
 [sub_resource type="StyleBoxFlat" id="Button"]
-bg_color = Color(0.11, 0.14, 0.18, 0.97)
+bg_color = Color(0.085, 0.08, 0.075, 0.97)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.45, 0.4, 0.28, 1)
+border_color = Color(0.52, 0.39, 0.23, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_left = 6
@@ -33,7 +33,7 @@ content_margin_top = 10.0
 content_margin_bottom = 10.0
 
 [sub_resource type="StyleBoxFlat" id="Hover"]
-bg_color = Color(0.22, 0.24, 0.24, 1)
+bg_color = Color(0.19, 0.16, 0.12, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
@@ -67,7 +67,7 @@ Label/colors/font_color = Color(0.93, 0.9, 0.83, 1)
 PanelContainer/styles/panel = SubResource("Panel")
 HBoxContainer/constants/separation = 12
 VBoxContainer/constants/separation = 12
-BattleView/colors/intent_line = Color(0.9, 0.55, 0.2, 0.55)
+BattleView/colors/intent_line = Color(1, 0.72, 0.34, 0.75)
 BattleView/colors/target_line = Color(0.3, 0.85, 0.9, 1)
 UnitView/colors/target_highlight = Color(1, 0.85, 0.5, 1)
 MapView/colors/route_line = Color(0.73, 0.61, 0.36, 0.7)

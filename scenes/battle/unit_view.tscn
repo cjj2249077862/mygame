@@ -1,10 +1,54 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=6 format=3]
+
 [ext_resource type="Script" path="res://scripts/ui/battle/unit_view.gd" id="1"]
 
+[sub_resource type="StyleBoxEmpty" id="Clear"]
+
+[sub_resource type="StyleBoxFlat" id="Nameplate"]
+bg_color = Color(0.035, 0.032, 0.027, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.57, 0.43, 0.25, 0.96)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+shadow_color = Color(0, 0, 0, 0.48)
+shadow_size = 3
+
+[sub_resource type="StyleBoxFlat" id="HealthBack"]
+bg_color = Color(0.075, 0.018, 0.014, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.61, 0.45, 0.29, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_left = 2
+corner_radius_bottom_right = 2
+
+[sub_resource type="StyleBoxFlat" id="HealthFill"]
+bg_color = Color(0.57, 0.115, 0.075, 1)
+border_width_top = 1
+border_color = Color(0.85, 0.36, 0.23, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_left = 2
+corner_radius_bottom_right = 2
+
 [node name="UnitView" type="Button"]
-custom_minimum_size = Vector2(145, 300)
+custom_minimum_size = Vector2(120, 240)
 size_flags_horizontal = 3
 toggle_mode = true
+theme_override_styles/normal = SubResource("Clear")
+theme_override_styles/hover = SubResource("Clear")
+theme_override_styles/pressed = SubResource("Clear")
+theme_override_styles/hover_pressed = SubResource("Clear")
+theme_override_styles/disabled = SubResource("Clear")
+theme_override_styles/focus = SubResource("Clear")
 script = ExtResource("1")
 breath_amount = 0.012
 breath_speed = 1.7
@@ -16,70 +60,143 @@ shield_tint = Color(0.6, 0.83, 1.2, 1)
 impact_tint = Color(1.4, 1.25, 1.15, 1)
 reduced_impact_tint = Color(0.9, 0.62, 0.57, 1)
 
-[node name="Content" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 10.0
-offset_right = -8.0
-offset_bottom = -10.0
+[node name="Nameplate" type="Panel" parent="."]
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("Nameplate")
+
+[node name="IntentPlate" type="Panel" parent="."]
+z_index = 3
+layout_mode = 0
+mouse_filter = 2
+visible = false
+theme_override_styles/panel = SubResource("Nameplate")
+
+[node name="Content" type="Control" parent="."]
+layout_mode = 0
 mouse_filter = 2
 
 [node name="Portrait" type="TextureRect" parent="Content"]
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-size_flags_vertical = 3
+layout_mode = 0
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="Role" type="TextureRect" parent="Content"]
+layout_mode = 0
 expand_mode = 1
 stretch_mode = 5
 mouse_filter = 2
 
 [node name="Details" type="Label" parent="Content"]
-layout_mode = 2
+layout_mode = 0
+theme_override_colors/font_color = Color(0.97, 0.88, 0.7, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 15
-autowrap_mode = 3
+text_overrun_behavior = 3
+vertical_alignment = 1
 mouse_filter = 2
 
 [node name="Health" type="ProgressBar" parent="Content"]
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
+layout_mode = 0
+theme_override_styles/background = SubResource("HealthBack")
+theme_override_styles/fill = SubResource("HealthFill")
 show_percentage = false
 mouse_filter = 2
 
-[node name="Statuses" type="Label" parent="Content"]
-layout_mode = 2
+[node name="Value" type="Label" parent="Content/Health"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -2.0
+offset_bottom = 2.0
+theme_override_colors/font_color = Color(1, 0.95, 0.9, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="ShieldIcon" type="TextureRect" parent="Content"]
+layout_mode = 0
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="ShieldValue" type="Label" parent="Content"]
+layout_mode = 0
+theme_override_colors/font_color = Color(0.78, 0.88, 1, 1)
 theme_override_font_sizes/font_size = 14
-autowrap_mode = 3
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="ThreatIcon" type="TextureRect" parent="Content"]
+layout_mode = 0
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="ThreatValue" type="Label" parent="Content"]
+layout_mode = 0
+theme_override_colors/font_color = Color(0.98, 0.81, 0.49, 1)
+theme_override_font_sizes/font_size = 14
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="Statuses" type="Label" parent="Content"]
+layout_mode = 0
+theme_override_colors/font_color = Color(0.95, 0.84, 0.63, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 12
+text_overrun_behavior = 3
+max_lines_visible = 1
 mouse_filter = 2
 
 [node name="Intent" type="Label" parent="Content"]
-layout_mode = 2
+z_index = 3
+layout_mode = 0
+theme_override_colors/font_color = Color(1, 0.86, 0.58, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/outline_size = 3
+theme_override_colors/font_outline_color = Color(0.05, 0.035, 0.02, 0.95)
 theme_override_font_sizes/font_size = 14
 autowrap_mode = 3
+text_overrun_behavior = 3
+max_lines_visible = 3
+mouse_filter = 2
+
+[node name="IntentFlags" type="Label" parent="Content"]
+z_index = 3
+layout_mode = 0
+theme_override_colors/font_color = Color(0.96, 0.73, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 12
+text_overrun_behavior = 3
+max_lines_visible = 1
 mouse_filter = 2
 
 [node name="StatusBadge" type="TextureRect" parent="."]
 visible = false
 layout_mode = 0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 38.0
-offset_bottom = 38.0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
 [node name="IntentBadge" type="TextureRect" parent="."]
+z_index = 3
 visible = false
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -38.0
-offset_top = 10.0
-offset_right = -10.0
-offset_bottom = 38.0
+layout_mode = 0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5

@@ -1,0 +1,14 @@
+warning: in the working copy of 'data/battle_rules.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/maps.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'project.godot', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/battle_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/hand_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/battle/unit_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/main.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/presentation/card_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/run/reward_panel.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/battle/unit_view.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/presentation/art_catalog.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/presentation/audio_director.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/ui/presentation/battle_feedback.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'themes/game_theme.tres', LF will be replaced by CRLF the next time Git touches it

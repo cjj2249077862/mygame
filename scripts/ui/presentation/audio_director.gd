@@ -71,6 +71,10 @@ func _ready() -> void:
 		set_context(requested)
 
 
+func _exit_tree() -> void:
+	stop_all()
+
+
 func configure(options: Dictionary) -> void:
 	_master_volume = _volume(options.get("master_volume", _master_volume), _master_volume)
 	_music_volume = _volume(options.get("music_volume", _music_volume), _music_volume)
@@ -158,10 +162,15 @@ func play_event(event: Dictionary, fast: bool = false) -> void:
 func stop_all() -> void:
 	if _fade != null and _fade.is_valid():
 		_fade.kill()
+	_fade = null
+	# Stop while the players still exist and release their playback/stream
+	# references explicitly; the audio thread drains stopped voices separately.
 	for player in _music:
 		player.stop()
+		player.stream = null
 	for player in _voices:
 		player.stop()
+		player.stream = null
 	_weights = [0.0, 0.0]
 	_context = ""
 	_last_played.clear()

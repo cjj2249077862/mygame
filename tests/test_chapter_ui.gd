@@ -42,6 +42,11 @@ func run_tests() -> void:
 	await _test_map()
 	await _test_node_choices()
 	await _test_reward_sections()
+	await _test_small_window_rewards()
+	app.get_node("AudioDirector").stop_all()
+	# Audio playback stops are handed to the mixer; allow it to release its WAVs
+	# before this standalone SceneTree suite exits immediately after freeing Main.
+	await create_timer(0.1).timeout
 	app.queue_free()
 	await process_frame
 
@@ -492,15 +497,7 @@ func _test_reward_sections() -> void:
 		"gold_granted": 40
 	}
 	reward.render_rewards(data, choices, 30)
-	await _check_layout_sizes(
-		reward,
-		[
-			"Margin/Content/Cards",
-			"Margin/Content/Relics",
-			"Margin/Content/Skip",
-			"Margin/Content/SkipRelic"
-		]
-	)
+	await _check_reward_scroll_sizes(reward)
 	var old: Button = reward.get_node("Margin/Content/Cards").get_child(0)
 	old.pressed.emit()
 	old.pressed.emit()
@@ -521,6 +518,85 @@ func _test_reward_sections() -> void:
 	)
 	reward.queue_free()
 	await process_frame
+
+
+func _test_small_window_rewards() -> void:
+	var reward: Control = RewardScene.instantiate()
+	reward.theme = app.theme
+	root.add_child(reward)
+	_apply_node_margins(reward)
+	var relics: Array[String] = []
+	for definition in data.rows("relics").slice(0, 3):
+		relics.append(str(definition.id))
+	var choices: Dictionary = {
+		"cards": ["slash", "heal", "shield_bash"],
+		"relics": relics,
+		"cards_done": false,
+		"relics_done": false,
+		"gold_granted": 100
+	}
+	var calls: Array[String] = []
+	reward.skipped.connect(func(_token: int) -> void: calls.append("cards"))
+	reward.relic_skipped.connect(func(_token: int) -> void: calls.append("relics"))
+	reward.render_rewards(data, choices, 40)
+	await _check_reward_scroll_sizes(reward)
+	await _set_logical_size(Vector2i(1200, 760))
+	var scroll: ScrollContainer = reward.get_node("Margin")
+	expect(scroll.get_v_scroll_bar().visible, "Small-window dual rewards expose vertical scrolling")
+	for card in reward.get_node("Margin/Content/Cards").get_children():
+		expect(
+			card.size.is_equal_approx(Vector2(180, 270)),
+			"Reward cards keep their portrait size instead of being stretched to fit"
+		)
+	for path in ["Margin/Content/Skip", "Margin/Content/SkipRelic"]:
+		var button: Button = reward.get_node(path)
+		button.grab_focus()
+		await process_frame
+		await process_frame
+		expect(
+			scroll.get_global_rect().grow(1).encloses(button.get_global_rect()),
+			"Keyboard focus brings each skip action into the scroll viewport"
+		)
+		button.pressed.emit()
+		button.pressed.emit()
+	expect(
+		calls == ["cards", "relics"],
+		"Both skip actions remain independently reachable and single-submit"
+	)
+	reward.queue_free()
+	await process_frame
+	await _set_logical_size(Vector2i(1440, 900))
+
+
+func _check_reward_scroll_sizes(reward: Control) -> void:
+	var scroll: ScrollContainer = reward.get_node("Margin")
+	for viewport_size in [Vector2i(1200, 760), Vector2i(1280, 800), Vector2i(1440, 900)]:
+		await _set_logical_size(viewport_size)
+		var viewport_bounds: Rect2 = root.get_visible_rect().grow(1)
+		expect(
+			viewport_bounds.encloses(reward.get_global_rect()),
+			"Dual-reward surface stays inside the supported viewport"
+		)
+		var controls: Array[Control] = []
+		for path in ["Margin/Content/Cards", "Margin/Content/Relics"]:
+			for child in reward.get_node(path).get_children():
+				controls.append(child)
+		controls.append(reward.get_node("Margin/Content/Skip"))
+		controls.append(reward.get_node("Margin/Content/SkipRelic"))
+		for control in controls:
+			scroll.ensure_control_visible(control)
+			await process_frame
+			expect(
+				(
+					control.is_visible_in_tree()
+					and scroll.get_global_rect().grow(1).encloses(control.get_global_rect())
+				),
+				"Every reward and skip action can be scrolled fully into view"
+			)
+			expect(
+				viewport_bounds.encloses(control.get_global_rect()),
+				"Visible reward controls never extend beyond the window"
+			)
 
 
 func _test_event_receipt() -> void:

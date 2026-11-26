@@ -1,9 +1,41 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/presentation/card_view.gd" id="1"]
 
+[sub_resource type="StyleBoxEmpty" id="Empty"]
+
+[sub_resource type="StyleBoxFlat" id="Selected"]
+draw_center = false
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.78, 0.3, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+shadow_color = Color(1, 0.66, 0.12, 0.48)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="Hover"]
+draw_center = false
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.87, 0.58, 0.85)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+shadow_color = Color(0.95, 0.65, 0.24, 0.3)
+shadow_size = 5
+
 [node name="CardView" type="Button"]
-custom_minimum_size = Vector2(196, 166)
+custom_minimum_size = Vector2(160, 240)
+size_flags_horizontal = 4
+size_flags_vertical = 4
 theme_override_colors/font_color = Color(1, 1, 1, 0)
 theme_override_colors/font_hover_color = Color(1, 1, 1, 0)
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 0)
@@ -11,54 +43,71 @@ theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 0)
 theme_override_colors/font_focus_color = Color(1, 1, 1, 0)
 theme_override_colors/font_disabled_color = Color(1, 1, 1, 0)
 theme_override_font_sizes/font_size = 1
+theme_override_styles/normal = SubResource("Empty")
+theme_override_styles/hover = SubResource("Empty")
+theme_override_styles/pressed = SubResource("Empty")
+theme_override_styles/hover_pressed = SubResource("Empty")
+theme_override_styles/disabled = SubResource("Empty")
+theme_override_styles/focus = SubResource("Empty")
 script = ExtResource("1")
-hover_scale = 1.08
+hover_scale = 1.1
 hover_duration = 0.12
-frame_scale = 0.2
+tank_title_color = Color(0.161, 0.247, 0.322, 1)
+assassin_title_color = Color(0.22, 0.169, 0.271, 1)
+healer_title_color = Color(0.157, 0.235, 0.196, 1)
+neutral_title_color = Color(0.3, 0.245, 0.165, 1)
 
-[node name="Frame" type="NinePatchRect" parent="."]
-layout_mode = 0
-mouse_filter = 2
-patch_margin_left = 46
-patch_margin_top = 46
-patch_margin_right = 46
-patch_margin_bottom = 46
-draw_center = false
-
-[node name="Content" type="VBoxContainer" parent="."]
+[node name="Frame" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 8.0
-offset_right = -10.0
-offset_bottom = -8.0
-theme_override_constants/separation = 4
-mouse_filter = 2
-
-[node name="Heading" type="HBoxContainer" parent="Content"]
-layout_mode = 2
-theme_override_constants/separation = 4
-mouse_filter = 2
-
-[node name="Role" type="TextureRect" parent="Content/Heading"]
-custom_minimum_size = Vector2(20, 20)
-layout_mode = 2
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 0
+mouse_filter = 2
+
+[node name="Content" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Heading" type="Control" parent="Content"]
+layout_mode = 1
+anchor_left = 0.053
+anchor_top = 0.046
+anchor_right = 0.947
+anchor_bottom = 0.151
+mouse_filter = 2
+
+[node name="RoleColor" type="ColorRect" parent="Content/Heading"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.161, 0.247, 0.322, 1)
 mouse_filter = 2
 
 [node name="Name" type="Label" parent="Content/Heading"]
-layout_mode = 2
-size_flags_horizontal = 3
+layout_mode = 1
+anchor_left = 0.2
+anchor_right = 0.98
+anchor_bottom = 1.0
+theme_override_colors/font_color = Color(0.98, 0.94, 0.83, 1)
 theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+vertical_alignment = 1
 text_overrun_behavior = 3
+clip_text = true
 mouse_filter = 2
 
 [node name="Cost" type="Control" parent="Content/Heading"]
-custom_minimum_size = Vector2(28, 28)
-layout_mode = 2
+layout_mode = 1
+anchor_left = -0.045
+anchor_top = -0.1
+anchor_right = 0.205
+anchor_bottom = 1.1
 mouse_filter = 2
 
 [node name="Badge" type="TextureRect" parent="Content/Heading/Cost"]
@@ -75,24 +124,63 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_font_sizes/font_size = 17
+theme_override_colors/font_color = Color(1, 0.95, 0.82, 1)
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 vertical_alignment = 1
 mouse_filter = 2
 
 [node name="Art" type="TextureRect" parent="Content"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-size_flags_vertical = 3
+layout_mode = 1
+anchor_left = 0.054
+anchor_top = 0.166
+anchor_right = 0.946
+anchor_bottom = 0.592
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Description" type="Label" parent="Content"]
+layout_mode = 1
+anchor_left = 0.09
+anchor_top = 0.625
+anchor_right = 0.91
+anchor_bottom = 0.918
+theme_override_colors/font_color = Color(0.115, 0.085, 0.055, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+text_overrun_behavior = 3
+max_lines_visible = 5
+mouse_filter = 2
+
+[node name="Role" type="TextureRect" parent="Content"]
+layout_mode = 1
+anchor_left = 0.4
+anchor_top = 0.892
+anchor_right = 0.6
+anchor_bottom = 0.995
 expand_mode = 1
 stretch_mode = 5
 mouse_filter = 2
 
-[node name="Description" type="Label" parent="Content"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-autowrap_mode = 3
-text_overrun_behavior = 3
-max_lines_visible = 3
+[node name="Selected" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchor_left = 0.023
+anchor_top = 0.02
+anchor_right = 0.977
+anchor_bottom = 0.977
+theme_override_styles/panel = SubResource("Selected")
+mouse_filter = 2
+
+[node name="HoverGlow" type="Panel" parent="."]
+visible = false
+layout_mode = 1
+anchor_left = 0.023
+anchor_top = 0.02
+anchor_right = 0.977
+anchor_bottom = 0.977
+theme_override_styles/panel = SubResource("Hover")
 mouse_filter = 2

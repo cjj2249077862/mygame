@@ -6,8 +6,11 @@ const ACTORS := {
 	"blade": "res://assets/characters/assassin.png",
 	"mender": "res://assets/characters/healer.png",
 }
-const ENEMY_ATLAS := "res://assets/characters/enemies_chapter_one.png"
-# Original transparent atlas: four columns, three rows; the final cell is empty.
+const ENEMY_ATLAS := "res://assets/characters/enemies_chapter_one_full.png"
+const BOSS_TEXTURE := "res://assets/characters/boss_iron_warden_full.png"
+# Standalone high-resolution boss; alpha bounds plus padding, clamped to the image.
+const BOSS_REGION := Rect2i(0, 70, 1023, 1401)
+# Full-body transparent atlas: four columns, three rows; the final cell is empty.
 const ENEMY_CELLS := {
 	"sentry": Vector2i(0, 0),
 	"cultist": Vector2i(1, 0),
@@ -20,6 +23,21 @@ const ENEMY_CELLS := {
 	"gaoler": Vector2i(0, 2),
 	"alchemist": Vector2i(1, 2),
 	"boss_iron_warden": Vector2i(2, 2),
+}
+# Read-only alpha bounds (>16/255), padded by four pixels inside each source cell.
+# Tight regions preserve full-body proportions when a unit fits its texture to height.
+const ENEMY_REGIONS := {
+	"sentry": Rect2i(94, 52, 195, 274),
+	"cultist": Rect2i(458, 54, 174, 272),
+	"sharpshooter": Rect2i(805, 57, 178, 269),
+	"shield_guard": Rect2i(1176, 53, 175, 274),
+	"torchbearer": Rect2i(107, 410, 176, 272),
+	"prison_hound": Rect2i(435, 486, 231, 197),
+	"hexer": Rect2i(812, 421, 176, 261),
+	"captain": Rect2i(1172, 415, 192, 266),
+	"gaoler": Rect2i(109, 772, 171, 275),
+	"alchemist": Rect2i(455, 773, 166, 273),
+	"boss_iron_warden": Rect2i(798, 772, 217, 275),
 }
 const ICONS := {
 	"shield": "res://assets/icons/shield.png",
@@ -178,14 +196,14 @@ static func _texture(path: String) -> Texture2D:
 static func _enemy_texture(definition_id: String) -> Texture2D:
 	if _enemy_texture_cache.has(definition_id):
 		return _enemy_texture_cache[definition_id] as Texture2D
-	var atlas: Texture2D = _texture(ENEMY_ATLAS)
+	var is_boss: bool = definition_id == "boss_iron_warden"
+	var atlas: Texture2D = _texture(BOSS_TEXTURE if is_boss else ENEMY_ATLAS)
 	if atlas == null:
 		return null
-	var cell: Vector2i = ENEMY_CELLS[definition_id]
-	var cell_size: Vector2 = atlas.get_size() / Vector2(4.0, 3.0)
+	var region: Rect2i = BOSS_REGION if is_boss else ENEMY_REGIONS[definition_id]
 	var portrait := AtlasTexture.new()
 	portrait.atlas = atlas
-	portrait.region = Rect2(Vector2(cell) * cell_size, cell_size)
+	portrait.region = Rect2(region)
 	portrait.filter_clip = true
 	_enemy_texture_cache[definition_id] = portrait
 	return portrait

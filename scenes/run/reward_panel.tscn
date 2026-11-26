@@ -1,18 +1,25 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 [ext_resource type="Script" path="res://scripts/ui/run/reward_panel.gd" id="1"]
+
+[sub_resource type="StyleBoxEmpty" id="ScrollPadding"]
+content_margin_left = 20.0
+content_margin_right = 20.0
+content_margin_top = 20.0
+content_margin_bottom = 20.0
+
 [node name="RewardPanel" type="PanelContainer"]
 script = ExtResource("1")
-card_minimum_size = Vector2(220, 166)
+card_minimum_size = Vector2(180, 270)
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Margin" type="ScrollContainer" parent="."]
 layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
+theme_override_styles/panel = SubResource("ScrollPadding")
+horizontal_scroll_mode = 0
+follow_focus = true
 
 [node name="Content" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="Title" type="Label" parent="Margin/Content"]
 layout_mode = 2
@@ -30,6 +37,7 @@ layout_mode = 2
 layout_mode = 2
 alignment = 1
 size_flags_vertical = 3
+size_flags_horizontal = 3
 
 [node name="Skip" type="Button" parent="Margin/Content"]
 layout_mode = 2

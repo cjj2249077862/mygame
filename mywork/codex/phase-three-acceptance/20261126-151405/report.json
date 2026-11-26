@@ -1,0 +1,160 @@
+{
+  "started": "20261126-151405",
+  "mode": "engine",
+  "source_sha256": "aa5d9a068898becad6e17ed7c185a2932326bc3de7c2bbb2d914a78b43f47e45",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "presentation_json",
+      "passed": true
+    },
+    {
+      "name": "presentation_tests",
+      "passed": true
+    },
+    {
+      "name": "audio_assets",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 115
+    },
+    {
+      "name": "godot_import",
+      "passed": true
+    },
+    {
+      "name": "import_source_integrity",
+      "passed": true
+    },
+    {
+      "name": "test_game_data",
+      "passed": true,
+      "detail": {
+        "assertions": 149,
+        "failures": [],
+        "passed": true,
+        "suite": "test_game_data"
+      }
+    },
+    {
+      "name": "test_battle_rules",
+      "passed": true,
+      "detail": {
+        "assertions": 236,
+        "failures": [],
+        "passed": true,
+        "suite": "test_battle_rules"
+      }
+    },
+    {
+      "name": "test_boss_rules",
+      "passed": true,
+      "detail": {
+        "assertions": 863,
+        "failures": [],
+        "passed": true,
+        "suite": "test_boss_rules"
+      }
+    },
+    {
+      "name": "test_map_generator",
+      "passed": true,
+      "detail": {
+        "assertions": 1233,
+        "failures": [],
+        "passed": true,
+        "suite": "test_map_generator"
+      }
+    },
+    {
+      "name": "test_save_manager",
+      "passed": true,
+      "detail": {
+        "assertions": 32,
+        "failures": [],
+        "passed": true,
+        "suite": "test_save_manager"
+      }
+    },
+    {
+      "name": "test_run_flow",
+      "passed": true,
+      "detail": {
+        "assertions": 99,
+        "failures": [],
+        "passed": true,
+        "suite": "test_run_flow"
+      }
+    },
+    {
+      "name": "test_chapter_flow",
+      "passed": true,
+      "detail": {
+        "assertions": 635,
+        "failures": [],
+        "passed": true,
+        "suite": "test_chapter_flow"
+      }
+    },
+    {
+      "name": "test_battle_ui",
+      "passed": false,
+      "detail": "engine_error_in_log"
+    },
+    {
+      "name": "test_chapter_ui",
+      "passed": true,
+      "detail": {
+        "assertions": 597,
+        "failures": [],
+        "passed": true,
+        "suite": "test_chapter_ui"
+      }
+    },
+    {
+      "name": "test_battle_sim",
+      "passed": true,
+      "detail": {
+        "assertions": 66,
+        "failures": [],
+        "passed": true,
+        "suite": "test_battle_sim"
+      }
+    },
+    {
+      "name": "test_presentation",
+      "passed": true,
+      "detail": {
+        "assertions": 460,
+        "failures": [],
+        "passed": true,
+        "suite": "test_presentation"
+      }
+    }
+  ],
+  "human_review": "pending",
+  "phase": 3,
+  "phase_three_accepted": false,
+  "source_before_import_sha256": "aa5d9a068898becad6e17ed7c185a2932326bc3de7c2bbb2d914a78b43f47e45",
+  "source_after_import_sha256": "aa5d9a068898becad6e17ed7c185a2932326bc3de7c2bbb2d914a78b43f47e45",
+  "status": "failed",
+  "source_unchanged": true
+}

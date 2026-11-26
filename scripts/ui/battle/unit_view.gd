@@ -24,6 +24,7 @@ var _flash_enabled := true
 var _elapsed := 0.0
 var _motion_tween: Tween
 var _portrait_base := Vector2.ZERO
+var _boss := false
 
 
 func _ready() -> void:
@@ -31,7 +32,89 @@ func _ready() -> void:
 	mouse_entered.connect(_on_hovered)
 	mouse_exited.connect(_on_unhovered)
 	$Content/Portrait.resized.connect(_on_portrait_resized)
-	_on_portrait_resized.call_deferred()
+	resized.connect(_layout_stage)
+	_layout_stage.call_deferred()
+
+
+func configure_stage(boss: bool = false) -> void:
+	_boss = boss
+	$Content/Details.add_theme_font_size_override("font_size", 18 if boss else 15)
+	if not _friendly:
+		$Content/Role.texture = Art.icon_texture("boss" if boss else "attack")
+	_layout_stage()
+
+
+func _layout_stage() -> void:
+	if not is_node_ready():
+		return
+	reset_presentation()
+	var plate_width: float = minf(size.x - 12.0, 300.0 if _boss else 236.0)
+	var plate_left: float = (size.x - plate_width) * 0.5
+	var plate_top: float = size.y - 84.0
+	var intent_height: float = 70.0 if $Content/IntentFlags.text.is_empty() else 88.0
+	var header_height: float = intent_height + 4.0 if not _friendly else 0.0
+	var available := Vector2(size.x, maxf(plate_top + 3.0 - header_height, 1.0))
+	var texture: Texture2D = $Content/Portrait.texture
+	var natural: Vector2 = texture.get_size() if texture != null else Vector2(2.0, 3.0)
+	var fit: float = minf(available.x / natural.x, available.y / natural.y)
+	var portrait_size: Vector2 = natural * fit
+	# Content carries the stage offset; Portrait keeps a zero animation origin.
+	$Content.position = Vector2((size.x - portrait_size.x) * 0.5, plate_top + 3.0 - portrait_size.y)
+	$Content.size = portrait_size
+	$Content/Portrait.size = portrait_size
+	$Nameplate.position = Vector2(plate_left, plate_top)
+	$Nameplate.size = Vector2(plate_width, 66.0)
+	_place_content($Content/Role, Vector2(plate_left + 7.0, plate_top + 4.0), Vector2(18, 20))
+	_place_content(
+		$Content/Details,
+		Vector2(plate_left + 28.0, plate_top + 3.0),
+		Vector2(plate_width - 35.0, 22)
+	)
+	_place_content(
+		$Content/Health,
+		Vector2(plate_left + 7.0, plate_top + 27.0),
+		Vector2(plate_width - 14.0, 14)
+	)
+	var shield_left: float = plate_left + (8.0 if _friendly else plate_width * 0.35)
+	var stat_width: float = maxf(12.0, plate_width * 0.5 - 30.0)
+	_place_content($Content/ShieldIcon, Vector2(shield_left, plate_top + 45.0), Vector2(18, 18))
+	_place_content(
+		$Content/ShieldValue, Vector2(shield_left + 21.0, plate_top + 44.0), Vector2(stat_width, 20)
+	)
+	_place_content(
+		$Content/ThreatIcon,
+		Vector2(plate_left + plate_width * 0.5 + 3.0, plate_top + 45.0),
+		Vector2(18, 18)
+	)
+	_place_content(
+		$Content/ThreatValue,
+		Vector2(plate_left + plate_width * 0.5 + 24.0, plate_top + 44.0),
+		Vector2(stat_width, 20)
+	)
+	$StatusBadge.position = Vector2(plate_left + 4.0, plate_top + 69.0)
+	$StatusBadge.size = Vector2(16, 16)
+	_place_content(
+		$Content/Statuses,
+		Vector2(plate_left + (24.0 if $StatusBadge.visible else 0.0), plate_top + 67.0),
+		Vector2(plate_width - (24.0 if $StatusBadge.visible else 0.0), 18)
+	)
+	$IntentPlate.position = Vector2(plate_left, 0)
+	$IntentPlate.size = Vector2(plate_width, intent_height)
+	$IntentPlate.visible = not _friendly and not $Content/Intent.text.is_empty()
+	# Only the first line reserves a small icon; effect numbers use the full width.
+	$IntentBadge.position = Vector2(plate_left + 5.0, 6.0)
+	$IntentBadge.size = Vector2(14, 14)
+	_place_content($Content/Intent, Vector2(plate_left + 5.0, 3.0), Vector2(plate_width - 10.0, 64))
+	_place_content(
+		$Content/IntentFlags, Vector2(plate_left + 5.0, 67.0), Vector2(plate_width - 10.0, 18)
+	)
+	$Content/IntentFlags.visible = not $Content/IntentFlags.text.is_empty()
+	_on_portrait_resized()
+
+
+func _place_content(control: Control, position_on_stage: Vector2, extent: Vector2) -> void:
+	control.position = position_on_stage - $Content.position
+	control.size = extent
 
 
 func configure_presentation(options: Dictionary) -> void:
@@ -61,7 +144,7 @@ func render(
 	_friendly = bool(unit.friendly)
 	_alive = int(unit.hp) > 0
 	text = ""
-	$Content/Details.text = data.text(
+	var details: String = data.text(
 		"ui.unit",
 		{
 			"name": data.text(unit.name_key),
@@ -71,8 +154,20 @@ func render(
 			"threat": unit.threat
 		}
 	)
+	$Content/Details.text = data.text(unit.name_key)
 	$Content/Health.max_value = unit.max_hp
 	$Content/Health.value = unit.hp
+	$Content/Health/Value.text = "%d/%d" % [unit.hp, unit.max_hp]
+	$Content/ShieldIcon.texture = Art.icon_texture("shield")
+	$Content/ShieldValue.text = str(unit.shield)
+	$Content/ThreatIcon.texture = Art.icon_texture("threat")
+	$Content/ThreatValue.text = str(unit.threat)
+	$Content/ThreatIcon.visible = _friendly
+	$Content/ThreatValue.visible = _friendly
+	var role: String = "boss" if _boss else "attack"
+	if _friendly:
+		role = str(data.definition("characters", str(unit.definition_id)).get("role", "tank"))
+	$Content/Role.texture = Art.icon_texture(role)
 	var portrait: Texture2D = Art.actor_texture(str(unit.definition_id))
 	if portrait == null and unit.portrait != "":
 		portrait = load(unit.portrait) as Texture2D
@@ -111,8 +206,11 @@ func render(
 			status_help.append(data.status_details("bomb"))
 	$Content/Statuses.text = "　".join(status_text)
 	$Content/Intent.text = ""
+	$Content/IntentFlags.text = ""
+	var intent_details := ""
 	if unit.hp <= 0:
 		$Content/Intent.text = data.text("ui.dead")
+		intent_details = $Content/Intent.text
 	elif not unit.friendly and not unit.intent.is_empty():
 		var preview: Dictionary = engine.intent_preview(unit.id)
 		var intent_icon: String = (
@@ -133,27 +231,42 @@ func render(
 			data.text("ui.interrupted") if unit.interrupted else str(preview.description),
 			data.text("ui.immune" if preview.immune else "ui.not_immune")
 		]
+		var flags: Array[String] = []
+		if preview.immune:
+			flags.append(lines[3])
 		if int(preview.boss_phase) > 0:
-			lines.append(data.text("ui.boss_phase", {"phase": preview.boss_phase}))
+			var phase_text: String = data.text("ui.boss_phase", {"phase": preview.boss_phase})
+			lines.append(phase_text)
+			flags.append(phase_text)
 		if preview.get("enraged", false):
 			lines.append(data.text("ui.enraged"))
+			flags.append(data.text("ui.enraged"))
 		elif int(preview.enrage_turn) > 0:
 			lines.append(data.text("ui.enrage_turn", {"turn": preview.enrage_turn}))
-		$Content/Intent.text = "\n".join(lines)
+		intent_details = "\n".join(lines)
+		var icon_space: String = "　 " if $IntentBadge.visible else ""
+		$Content/Intent.text = "%s%s\n%s" % [icon_space, lines[0], lines[2]]
+		$Content/IntentFlags.text = " · ".join(flags)
+	$Content/Intent.tooltip_text = intent_details
+	$Content/IntentFlags.tooltip_text = intent_details
 	_selected = selected
 	set_pressed_no_signal(selected)
+	$Nameplate.self_modulate = (
+		get_theme_color("target_highlight", "UnitView") if selected else Color.WHITE
+	)
 	modulate = get_theme_color("target_highlight", "UnitView") if highlighted else Color.WHITE
 	tooltip_text = (
-		$Content/Details.text
+		details
 		+ "\n"
 		+ $Content/Statuses.text
 		+ "\n"
 		+ "\n".join(status_help)
 		+ "\n"
-		+ $Content/Intent.text
+		+ intent_details
 	)
 	$StatusBadge.tooltip_text = $Content/Statuses.text
-	_on_portrait_resized.call_deferred()
+	$Content/Statuses.tooltip_text = $Content/Statuses.text + "\n" + "\n".join(status_help)
+	_layout_stage()
 
 
 func play_cue(kind: String, fast: bool = false) -> void:

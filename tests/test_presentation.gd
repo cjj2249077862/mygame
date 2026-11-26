@@ -2,6 +2,7 @@ extends "res://tests/test_suite.gd"
 
 const Data = preload("res://scripts/data/game_data.gd")
 const Run = preload("res://scripts/core/run_manager.gd")
+const Battle = preload("res://scripts/core/battle_engine.gd")
 const Store = preload("res://scripts/core/save_manager.gd")
 const Types = preload("res://scripts/core/enums.gd")
 const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
@@ -40,6 +41,7 @@ func run_tests() -> void:
 	await _test_audio()
 	await _test_cards_and_prices()
 	await _test_main_wiring()
+	await _test_stage_layout_and_input()
 	await _test_normal_and_fast()
 	_cleanup_directories()
 
@@ -495,6 +497,268 @@ func _test_main_action_order(app: Control, view: Control) -> void:
 		expect(heard.size() == count_before, "Rejected play emits no successful card sound")
 
 
+func _test_stage_layout_and_input() -> void:
+	var app: Control = MainScene.instantiate()
+	app.save_directory = _directory("stage_layout")
+	root.add_child(app)
+	await process_frame
+	if not expect(app.run != null, "Stage regression requires the real Main scene"):
+		app.queue_free()
+		await process_frame
+		return
+	# This fixture selects encounters directly, independently of map progress.
+	# The real run/battle signals remain connected; its saves are memory-only.
+	app.run.saves = null
+	app.preferences.set_option("audio_enabled", false)
+	app.preferences.set_option("fast", true)
+	app.preferences.set_option("show_log", false)
+	app.preferences.set_option("shake_enabled", false)
+	var view: Control = app.get_node("Battle")
+	if not expect(app.run.start(618038), "Stage fixture starts with real party and deck"):
+		app.queue_free()
+		await process_frame
+		return
+	await _settle(view)
+	for viewport_size in [Vector2i(1200, 760), Vector2i(1440, 900)]:
+		root.content_scale_size = viewport_size
+		root.size = viewport_size
+		await process_frame
+		await process_frame
+		expect(app.size == Vector2(viewport_size), "Main follows the requested logical viewport")
+		for encounter_id in ["outpost_crossfire", "outpost_iron_throne"]:
+			app.run._begin_battle(encounter_id)
+			await _settle(view)
+			await process_frame
+			var field: Control = view.get_node("Margin/Content/Middle/Field")
+			var heroes: Control = field.get_node("Heroes")
+			var enemies: Control = field.get_node("Enemies")
+			var enemy_count: int = 3 if encounter_id == "outpost_crossfire" else 1
+			expect(
+				heroes.get_child_count() == 3 and enemies.get_child_count() == enemy_count,
+				"Stage renders the real party and encounter roster"
+			)
+			_expect_corners_inside(
+				app.get_viewport_rect(), field, "Battle stage remains in the viewport"
+			)
+			for actor in heroes.get_children() + enemies.get_children():
+				_expect_corners_inside(
+					field.get_global_rect(),
+					actor,
+					"Actor root fits the stage: " + str(actor.unit_id)
+				)
+			if enemy_count == 1:
+				expect(
+					enemies.get_child(0)._boss, "The boss fixture uses the boss presentation layout"
+				)
+		for count in [5, 10]:
+			_set_hand_count(view, count)
+			await process_frame
+			await process_frame
+			await _check_hand_layout(app, view, count)
+		await _check_stage_clicks(app, view)
+		await _check_effect_lifetime(app, view)
+	view.leave_battle()
+	app.get_node("AudioDirector").stop_all()
+	app.queue_free()
+	await process_frame
+	root.content_scale_size = Vector2i(1440, 900)
+	root.size = Vector2i(1440, 900)
+	await process_frame
+
+
+func _set_hand_count(view: Control, count: int) -> void:
+	view.clear_selection()
+	var copies: Array = []
+	for pile in Types.PILES:
+		copies.append_array(view.engine.state[pile])
+		view.engine.state[pile] = []
+	# Keep unique real copies and put one legal targeted card in the exposed slot.
+	for copy in copies:
+		if copy.card_id == "slash":
+			copies.erase(copy)
+			copies.push_front(copy)
+			break
+	view.engine.state.hand = copies.slice(0, count)
+	view.engine.state.draw = copies.slice(count)
+	view.engine.state.energy = 3
+	view.refresh()
+
+
+func _check_hand_layout(app: Control, view: Control, count: int) -> void:
+	var hand: Control = view.hand
+	var hand_bounds: Rect2 = hand.get_global_rect()
+	var viewport_bounds: Rect2 = app.get_viewport_rect()
+	for path in [
+		"Margin/Content/HandScroll",
+		"Margin/Content/Actions",
+		"Margin/Content/Actions/EndTurn",
+		"Margin/Content/Energy"
+	]:
+		_expect_corners_inside(
+			viewport_bounds, view.get_node(path), "Battle control stays in the viewport: " + path
+		)
+	expect(hand.get_child_count() == count, "Hand displays every real card in the fixture")
+	var before: Dictionary = view.engine.snapshot()
+	var rng_before: int = view.engine.rng.state
+	var ids_before: Array[int] = []
+	for card in hand.get_children():
+		ids_before.append(int(card.get_meta("copy_id")))
+		_expect_corners_inside(hand_bounds, card, "Normal fan card corners stay inside Hand")
+		expect(
+			is_equal_approx(card.size.x / card.size.y, 2.0 / 3.0),
+			"Fan cards retain the portrait aspect ratio"
+		)
+	for card in hand.get_children():
+		var rest_bounds: Rect2 = _transformed_bounds(card)
+		card.mouse_entered.emit()
+		await create_timer(float(hand.layout_duration) + 0.04).timeout
+		_expect_corners_inside(hand_bounds, card, "Raised fan card corners stay inside Hand")
+		expect(
+			card.scale.x > 1.0 and _transformed_bounds(card).position.y < rest_bounds.position.y,
+			"Hover raises and enlarges the full card"
+		)
+		card.mouse_exited.emit()
+		await create_timer(float(hand.layout_duration) + 0.04).timeout
+	var ids_after: Array[int] = []
+	for card in hand.get_children():
+		ids_after.append(int(card.get_meta("copy_id")))
+	expect(ids_after == ids_before, "Hover stacking never reorders card-copy indices")
+	expect(
+		view.engine.snapshot() == before and view.engine.rng.state == rng_before,
+		"Resize and fan hover do not spend cards, energy or RNG"
+	)
+
+
+func _check_stage_clicks(app: Control, view: Control) -> void:
+	view.clear_selection()
+	await process_frame
+	var first: Button = view.hand.get_child(0)
+	var copy_id: int = int(first.get_meta("copy_id"))
+	var before: Dictionary = view.engine.snapshot()
+	var rng_before: int = view.engine.rng.state
+	var exposed_point: Vector2 = (
+		first.get_global_transform() * Vector2(first.size.x * 0.12, first.size.y * 0.45)
+	)
+	_left_click(exposed_point)
+	await process_frame
+	expect(view.selected_copy == copy_id, "Viewport click selects the exposed fan card")
+	_left_click(view.get_node("Margin/Content/Actions/Cancel").get_global_rect().get_center())
+	await process_frame
+	expect(view.selected_copy == -1, "The relocated Cancel control clears card selection")
+	var enemy: Control = view._unit_views().get("enemy_0")
+	_left_click(enemy.get_global_rect().get_center())
+	expect(
+		view.engine.snapshot() == before and view.engine.rng.state == rng_before,
+		"Cancel followed by a target click spends nothing"
+	)
+	var reference_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	reference_rng.seed = view.engine.rng.seed
+	reference_rng.state = view.engine.rng.state
+	var reference: RefCounted = Battle.new(app.data)
+	if not expect(
+		reference.restore(before, reference_rng), "Click regression clones a valid action boundary"
+	):
+		return
+	expect(
+		reference.play_card(copy_id, "warden", "enemy_0") == "",
+		"Reference applies exactly one legal slash"
+	)
+	first = view.hand.get_child(0)
+	exposed_point = first.get_global_transform() * Vector2(first.size.x * 0.12, first.size.y * 0.45)
+	_left_click(exposed_point)
+	await process_frame
+	expect(view.selected_copy == copy_id, "Card selection still works after cancellation")
+	_left_click(enemy.get_global_rect().get_center())
+	var once: Dictionary = view.engine.snapshot()
+	var once_rng: int = view.engine.rng.state
+	_left_click(enemy.get_global_rect().get_center())
+	expect(
+		view.engine.snapshot() == once and view.engine.rng.state == once_rng,
+		"Repeated real target clicks cannot replay a pending action"
+	)
+	await _settle(view)
+	expect(
+		(
+			view.engine.snapshot() == reference.snapshot()
+			and view.engine.rng.state == reference_rng.state
+		),
+		"Relocated card and target controls produce exactly one unchanged core action"
+	)
+
+
+func _check_effect_lifetime(app: Control, view: Control) -> void:
+	var feedback: Control = view.get_node("Feedback")
+	var effects: Node = feedback.get_node("Effects")
+	feedback.reset()
+	var before: Dictionary = view.engine.snapshot()
+	var rng_before: int = view.engine.rng.state
+	var origin: Vector2 = view.hand.get_global_rect().get_center() - feedback.global_position
+	var target: Vector2 = (
+		view._unit_views().get("enemy_0").get_global_rect().get_center() - feedback.global_position
+	)
+	feedback.show_effect("damage", origin, target, false)
+	feedback.show_effect("heal", origin, target, false)
+	feedback.show_card(
+		{"copy_id": 7, "card_id": "slash", "upgraded": false}, app.data, origin, target, false
+	)
+	expect(
+		effects.get_child_count() >= 2, "Spell strokes and flying card reach the live Effects layer"
+	)
+	await create_timer(0.06).timeout
+	expect(
+		view.engine.snapshot() == before and view.engine.rng.state == rng_before,
+		"Running spell and card-flight tweens do not advance combat or RNG"
+	)
+	var owned: Array[Node] = effects.get_children()
+	feedback.reset()
+	expect(
+		effects.get_child_count() == 0,
+		"Reset immediately removes active spell and card-flight visuals"
+	)
+	await process_frame
+	for effect in owned:
+		expect(
+			not is_instance_valid(effect), "Reset frees each removed effect and its owned tweens"
+		)
+	expect(
+		view.engine.snapshot() == before and view.engine.rng.state == rng_before,
+		"Effect cleanup is also read-only"
+	)
+
+
+func _left_click(point: Vector2) -> void:
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.position = point
+	motion.global_position = point
+	root.push_input(motion, true)
+	for pressed in [true, false]:
+		var event: InputEventMouseButton = InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		event.pressed = pressed
+		event.position = point
+		event.global_position = point
+		root.push_input(event, true)
+
+
+func _transformed_bounds(control: Control) -> Rect2:
+	var transform: Transform2D = control.get_global_transform()
+	var bounds: Rect2 = Rect2(transform * Vector2.ZERO, Vector2.ZERO)
+	for corner in [Vector2(control.size.x, 0), control.size, Vector2(0, control.size.y)]:
+		bounds = bounds.expand(transform * corner)
+	return bounds
+
+
+func _expect_corners_inside(bounds: Rect2, control: Control, message: String) -> void:
+	var transform: Transform2D = control.get_global_transform()
+	var enclosed: bool = control.size.x > 0 and control.size.y > 0
+	for corner in [
+		Vector2.ZERO, Vector2(control.size.x, 0), control.size, Vector2(0, control.size.y)
+	]:
+		enclosed = enclosed and bounds.grow(1.0).has_point(transform * corner)
+	expect(enclosed, message)
+
+
 func _test_normal_and_fast() -> void:
 	var normal_run: RefCounted = Run.new(data)
 	var fast_run: RefCounted = Run.new(data)
@@ -639,6 +903,12 @@ func _test_feedback_cleanup(view: Control, old_run: RefCounted, new_run: RefCoun
 		{"kind": "damage", "target": "warden", "amount": 8, "hp_loss": 3, "shield_loss": 5}, true
 	)
 	expect(numbers.get_child_count() == 2, "A mixed hit separately displays shield and HP loss")
+	for number in numbers.get_children():
+		var feedback_icon: TextureRect = number.get_child(0)
+		expect(
+			feedback_icon.size == Vector2(28, 28),
+			"Floating-number icons keep their HUD size instead of the source texture size"
+		)
 	if numbers.get_child_count() == 2:
 		expect(
 			numbers.get_child(0).text == "−5" and numbers.get_child(1).text == "−3",

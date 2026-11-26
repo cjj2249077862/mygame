@@ -1,5 +1,22 @@
 [gd_scene load_steps=2 format=3]
+
 [ext_resource type="Script" path="res://scripts/ui/battle/hand_view.gd" id="1"]
-[node name="HandView" type="HBoxContainer"]
+
+[node name="HandView" type="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1")
-card_minimum_size = Vector2(196, 166)
+card_minimum_size = Vector2(160, 240)
+hover_scale = 1.1
+hover_lift = 14.0
+selected_lift = 8.0
+fan_angle = 4.0
+fan_depth = 8.0
+bottom_margin = 8.0
+card_spacing_ratio = 0.9
+layout_duration = 0.12

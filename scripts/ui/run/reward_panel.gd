@@ -40,6 +40,8 @@ func render(data: RefCounted, candidates: Array, token: int) -> void:
 func render_rewards(
 	data: RefCounted, rewards: Dictionary, token: int, blocked: bool = false
 ) -> void:
+	if token != _token:
+		$Margin.set_deferred("scroll_vertical", 0)
 	_token = token
 	_submitted = false
 	_relic_submitted = false
@@ -65,6 +67,7 @@ func render_rewards(
 	for id in _candidates:
 		var button = CardView.instantiate()
 		button.custom_minimum_size = card_minimum_size
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		button.disabled = blocked or _cards_done
 		button.pressed.connect(_on_claim.bind(id, token))
 		$Margin/Content/Cards.add_child(button)
@@ -83,7 +86,7 @@ func _button(text: String, details: String) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = details
-	button.custom_minimum_size = card_minimum_size
+	button.custom_minimum_size = Vector2(220, 90)
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return button
 
