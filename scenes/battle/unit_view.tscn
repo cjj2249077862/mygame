@@ -6,6 +6,15 @@ custom_minimum_size = Vector2(145, 300)
 size_flags_horizontal = 3
 toggle_mode = true
 script = ExtResource("1")
+breath_amount = 0.012
+breath_speed = 1.7
+attack_distance = 8.0
+cue_duration = 0.28
+dead_tint = Color(0.4, 0.42, 0.46, 0.25)
+heal_tint = Color(0.5, 1.15, 0.76, 1)
+shield_tint = Color(0.6, 0.83, 1.2, 1)
+impact_tint = Color(1.4, 1.25, 1.15, 1)
+reduced_impact_tint = Color(0.9, 0.62, 0.57, 1)
 
 [node name="Content" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -49,3 +58,28 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 14
 autowrap_mode = 3
 mouse_filter = 2
+
+[node name="StatusBadge" type="TextureRect" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 38.0
+offset_bottom = 38.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IntentBadge" type="TextureRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -38.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 38.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5

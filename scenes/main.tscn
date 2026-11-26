@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main.gd" id="1"]
 [ext_resource type="Theme" path="res://themes/game_theme.tres" id="2"]
@@ -7,6 +7,9 @@
 [ext_resource type="Texture2D" path="res://assets/backgrounds/dungeon_outpost.png" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/run/map_view.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/run/node_panel.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/presentation/presentation_options.tscn" id="8"]
+[ext_resource type="Script" path="res://scripts/ui/presentation/audio_director.gd" id="9"]
+[ext_resource type="Script" path="res://scripts/ui/presentation/ambient_backdrop.gd" id="10"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -26,11 +29,21 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -12.0
+offset_top = -12.0
+offset_right = 12.0
+offset_bottom = 12.0
 texture = ExtResource("5")
 expand_mode = 1
 stretch_mode = 6
-modulate = Color(0.3, 0.33, 0.38, 1)
+modulate = Color(0.42, 0.45, 0.5, 1)
 mouse_filter = 2
+script = ExtResource("10")
+parallax_distance = 7.0
+follow_speed = 2.0
+
+[node name="AudioDirector" type="Node" parent="."]
+script = ExtResource("9")
 
 [node name="Menu" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -59,6 +72,9 @@ custom_minimum_size = Vector2(0, 60)
 [node name="Continue" type="Button" parent="Menu/Content"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 60)
+
+[node name="Presentation" type="Button" parent="Menu/Content"]
+layout_mode = 2
 
 [node name="Quit" type="Button" parent="Menu/Content"]
 layout_mode = 2
@@ -149,6 +165,9 @@ layout_mode = 2
 [node name="Map" type="Button" parent="Navigation/Actions"]
 layout_mode = 2
 
+[node name="Presentation" type="Button" parent="Navigation/Actions"]
+layout_mode = 2
+
 [node name="EventResult" type="Button" parent="Navigation/Actions"]
 visible = false
 layout_mode = 2
@@ -184,6 +203,8 @@ offset_left = 16.0
 offset_top = 16.0
 offset_right = -16.0
 offset_bottom = -65.0
+
+[node name="PresentationOptions" parent="." instance=ExtResource("8")]
 
 [node name="SaveProblem" type="PanelContainer" parent="."]
 visible = false

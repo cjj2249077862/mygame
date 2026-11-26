@@ -64,8 +64,19 @@ func damage(
 	var actual := shield_loss + hp_loss
 	if not source.is_empty() and source.friendly and source.hp > 0:
 		source.threat += roundi(actual * multiplier)
-	engine.events.append(
-		"damage", {"source": source.get("id", ""), "target": target.id, "amount": actual}
+	(
+		engine
+		. events
+		. append(
+			"damage",
+			{
+				"source": source.get("id", ""),
+				"target": target.id,
+				"amount": actual,
+				"hp_loss": hp_loss,
+				"shield_loss": shield_loss,
+			}
+		)
 	)
 	var killed: bool = target.hp == 0
 	(

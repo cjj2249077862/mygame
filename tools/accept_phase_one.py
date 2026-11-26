@@ -92,6 +92,93 @@ def accept_generated_uids(before_uids, source_before):
     return sorted(added)
 
 
+def asset_imports():
+    return {path.relative_to(ROOT).as_posix()
+            for path in (ROOT/'assets').rglob('*.import') if path.is_file()}
+
+
+def valid_asset_import(relative):
+    """Validate only the source/output identity of a newly generated sidecar.
+
+    Godot's ConfigFile format also contains Variant dictionaries in metadata and
+    parameters, so this reads the exact required remap/deps fields, not arbitrary
+    Python expressions. Unknown sections/parameters cannot escape the fingerprint
+    guard: only a new metadata file for an already unchanged asset is eligible.
+    """
+    path = ROOT/relative
+    source = path.with_suffix('')
+    if (path.is_symlink() or source.is_symlink() or not source.is_file()
+            or not source.resolve().is_relative_to((ROOT/'assets').resolve())):
+        return False
+    suffix = source.suffix.lower()
+    if suffix in ('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tga', '.svg'):
+        importer, resource_type, output_suffix = 'texture', 'CompressedTexture2D', '.ctex'
+    elif suffix == '.wav':
+        importer, resource_type, output_suffix = 'wav', 'AudioStreamWAV', '.sample'
+    else:
+        return False
+    try:
+        text = path.read_text(encoding='utf-8')
+        headings = list(re.finditer(r'^\[([^\]\r\n]+)\]\s*$', text, flags=re.MULTILINE))
+        sections = {}
+        for index, heading in enumerate(headings):
+            name = heading[1]
+            if name in sections:
+                return False
+            end = headings[index+1].start() if index+1 < len(headings) else len(text)
+            sections[name] = text[heading.end():end]
+
+        def field(section, name):
+            values = re.findall(r'^' + re.escape(name) + r'\s*=\s*(.+)$',
+                                sections.get(section, ''), flags=re.MULTILINE)
+            if len(values) != 1:
+                raise ValueError('missing or duplicate import field')
+            return json.loads(values[0])
+
+        if (field('remap', 'importer') != importer
+                or field('remap', 'type') != resource_type
+                or not re.fullmatch(r'uid://[a-z0-9]+', field('remap', 'uid'))
+                or field('deps', 'source_file') != 'res://' + source.relative_to(ROOT).as_posix()):
+            return False
+        destinations = field('deps', 'dest_files')
+        if not isinstance(destinations, list) or not destinations:
+            return False
+        for destination in destinations:
+            if (not isinstance(destination, str)
+                    or not re.fullmatch(r'res://\.godot/imported/[^/\\:]+', destination)
+                    or not destination.endswith(output_suffix)
+                    or Path(destination).name in ('.', '..')):
+                return False
+        # A plain texture/WAV remap must point at one of its declared cache files.
+        remap_paths = re.findall(r'^path(?:\.[A-Za-z0-9_]+)?\s*=\s*(.+)$',
+                                 sections.get('remap', ''), flags=re.MULTILINE)
+        if not remap_paths or any(json.loads(value) not in destinations for value in remap_paths):
+            return False
+    except (OSError, UnicodeError, ValueError, TypeError):
+        return False
+    return True
+
+
+def accept_generated_metadata(before_uids, before_imports, source_before):
+    """Whitelist only new validated metadata; existing metadata stays fingerprinted."""
+    added_uids = script_uids() - before_uids
+    added_imports = asset_imports() - before_imports
+    added = added_uids | added_imports
+    if not added or fingerprint(ignore=added) != source_before:
+        return {}
+    for relative in added_uids:
+        path = ROOT/relative
+        try:
+            if (path.is_symlink() or not path.with_suffix('').is_file()
+                    or not re.fullmatch(r'uid://[a-z0-9]+\s*', path.read_text(encoding='utf-8'))):
+                return {}
+        except (OSError, UnicodeError):
+            return {}
+    if not all(valid_asset_import(relative) for relative in added_imports):
+        return {}
+    return {'script_uids': sorted(added_uids), 'asset_imports': sorted(added_imports)}
+
+
 def check_resource_paths():
     count = 0
     for folder, pattern in (('scripts', '*.gd'), ('scenes', '*.tscn'), ('themes', '*.tres')):
@@ -117,7 +204,7 @@ def main(phase=1, suites=SUITES):
     if min(args.samples, args.turn_limit, args.timeout) <= 0:
         parser.error('samples, turn-limit and timeout must be positive')
     stamp = datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d-%H%M%S')
-    phase_name = {1: 'one', 2: 'two'}[phase]
+    phase_name = {1: 'one', 2: 'two', 3: 'three'}[phase]
     output = (args.output or ROOT/f'mywork/codex/phase-{phase_name}-acceptance'/stamp).resolve()
     output.mkdir(parents=True, exist_ok=True)
     report = {'started': stamp, 'mode': 'static' if args.static_only else 'engine',
@@ -129,6 +216,12 @@ def main(phase=1, suites=SUITES):
         ('runner_tests', [sys.executable, '-X', 'utf8', 'tests/test_accept_phase_one.py']),
         ('whitespace', ['git', 'diff', '--check']),
     ]
+    if phase == 3:
+        commands.extend([
+            ('presentation_json', [sys.executable, '-X', 'utf8', 'tools/export_presentation.py', '--check']),
+            ('presentation_tests', [sys.executable, '-X', 'utf8', 'tests/test_presentation_data.py']),
+            ('audio_assets', [sys.executable, '-X', 'utf8', 'tools/generate_audio.py', '--check']),
+        ])
     for label, command in commands:
         result = run_process(command, args.timeout)
         (output/(label+'.log')).write_text(result['output'], encoding='utf-8')
@@ -143,17 +236,23 @@ def main(phase=1, suites=SUITES):
     if args.godot and all(c['passed'] for c in report['checks']):
         # A fresh clone has source textures and import settings, but no .ctex cache.
         before_uids = script_uids()
+        before_imports = asset_imports()
+        report['source_before_import_sha256'] = report['source_sha256']
         result = run_process([str(args.godot.resolve()), '--headless', '--editor', '--import',
                               '--path', str(ROOT)], args.timeout)
         (output/'godot_import.log').write_text(result['output'], encoding='utf-8')
         import_passed = result['returncode'] == 0 and not result['timeout'] and not ERROR_LINE.search(result['output'])
         report['checks'].append({'name': 'godot_import', 'passed': bool(import_passed)})
         print(f'godot_import: {"passed" if import_passed else "FAILED"}')
-        generated = accept_generated_uids(before_uids, report['source_sha256'])
+        generated = accept_generated_metadata(before_uids, before_imports, report['source_sha256'])
         if generated:
-            report['source_before_import_sha256'] = report['source_sha256']
-            report['generated_script_uids'] = generated
+            report['generated_script_uids'] = generated['script_uids']
+            report['generated_asset_imports'] = generated['asset_imports']
             report['source_sha256'] = fingerprint()
+        report['source_after_import_sha256'] = fingerprint()
+        import_unchanged = report['source_after_import_sha256'] == report['source_sha256']
+        report['checks'].append({'name': 'import_source_integrity', 'passed': import_unchanged})
+        print(f'import_source_integrity: {"passed" if import_unchanged else "FAILED"}')
     if args.godot and all(c['passed'] for c in report['checks']):
         for suite in suites:
             command = [str(args.godot.resolve()), '--headless', '--path', str(ROOT),

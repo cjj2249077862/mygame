@@ -3,12 +3,15 @@ extends Control
 const Data = preload("res://scripts/data/game_data.gd")
 const Run = preload("res://scripts/core/run_manager.gd")
 const Types = preload("res://scripts/core/enums.gd")
+const Preferences = preload("res://scripts/ui/presentation/presentation_preferences.gd")
+const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 @export var save_directory := "user://raiddeck"
 @export var chapter_map_preferred_size: Vector2i
 @export var chapter_map_viewport_margin: Vector2i
 @export var inspect_preferred_size: Vector2i
 var data := Data.new()
 var run: RefCounted
+var preferences: RefCounted
 var _showing_menu := true
 var _pending_menu_action := ""
 
@@ -21,6 +24,17 @@ func _ready() -> void:
 		return
 	get_tree().auto_accept_quit = false
 	run = Run.new(data, save_directory)
+	preferences = Preferences.new(save_directory)
+	$PresentationOptions.bind_preferences(preferences, data)
+	preferences.changed.connect(_apply_presentation)
+	$Battle.presentation_event.connect($AudioDirector.play_event)
+	$Battle/Margin/Content/Actions/Fast.toggled.connect(_on_fast_changed)
+	for button in [$Menu/Content/Presentation, $Navigation/Actions/Presentation]:
+		button.text = preferences.text("presentation.options")
+		button.icon = Art.icon_texture("settings")
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", 22)
+		button.pressed.connect($PresentationOptions.open)
 	run.changed.connect(_on_run_changed)
 	run.battle_created.connect(_on_battle_created)
 	$Battle.presentation_finished.connect(_on_run_changed)
@@ -64,6 +78,7 @@ func _ready() -> void:
 	resized.connect(_on_main_resized)
 	$SaveProblem/Content/Retry.text = data.text("ui.retry_save")
 	$SaveProblem/Content/NewRun.text = data.text("ui.discard_bad_run")
+	_apply_presentation()
 	_on_run_changed()
 
 
@@ -152,8 +167,8 @@ func _notification(what: int) -> void:
 func _on_battle_created(engine: RefCounted) -> void:
 	_showing_menu = false
 	_dismiss_dialogs()
-	$Battle.bind_battle(engine, data, run.deck)
 	$Battle.gold = run.gold
+	$Battle.bind_battle(engine, data, run.deck)
 	$Battle.show()
 	$Reward.hide()
 	$Map.hide()
@@ -166,6 +181,7 @@ func _on_run_changed() -> void:
 	if run == null:
 		return
 	var state: Dictionary = run.view_snapshot()
+	_update_music(state)
 	var blocked: bool = state.get("persistence_error", "") != ""
 	$SaveProblem.visible = blocked
 	$SaveProblem/Content/NewRun.visible = state.get("can_discard_saved_run", false)
@@ -222,7 +238,8 @@ func _on_run_changed() -> void:
 		$Battle.leave_battle()
 	else:
 		$Battle.gold = state.gold
-		$Battle.refresh()
+		# BattleView owns initial/settled rendering. Run.changed is emitted before
+		# its settled callback and must not reveal the result ahead of the animation.
 	if $Map.visible:
 		$Map.render(state, data)
 	if $NodePanel.visible:
@@ -405,5 +422,31 @@ func _dismiss_dialogs() -> void:
 	$Inspect.hide()
 	$Message.hide()
 	$ChapterMap.hide()
+	$PresentationOptions.hide()
 	_clear_menu_confirmation()
 	$NodePanel.deactivate()
+
+
+func _apply_presentation() -> void:
+	var options: Dictionary = preferences.snapshot()
+	$AudioDirector.configure(options)
+	$Battle.configure_presentation(options)
+	$Background.motion_enabled = options.parallax_enabled
+
+
+func _on_fast_changed(fast: bool) -> void:
+	if preferences != null and preferences.snapshot().fast != fast:
+		if not preferences.set_option("fast", fast):
+			$PresentationOptions.open()
+
+
+func _update_music(state: Dictionary) -> void:
+	var context := "menu" if _showing_menu else "chapter"
+	if (
+		not _showing_menu
+		and run.battle != null
+		and (state.phase == Types.RunPhase.BATTLE or $Battle.locked)
+	):
+		var encounter: Dictionary = data.definition("encounters", run.battle.state.encounter_id)
+		context = "boss" if encounter.get("kind") == "boss" else "chapter"
+	$AudioDirector.set_context(context)

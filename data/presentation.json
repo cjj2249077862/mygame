@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "texts": {
+    "presentation.options": "演出与声音",
+    "presentation.master_volume": "总音量",
+    "presentation.music_volume": "音乐",
+    "presentation.sfx_volume": "音效",
+    "presentation.audio_enabled": "启用声音",
+    "presentation.fast": "快速播放",
+    "presentation.show_log": "显示战斗日志",
+    "presentation.shake_enabled": "屏幕微震",
+    "presentation.flash_enabled": "受击闪光",
+    "presentation.parallax_enabled": "场景轻微视差",
+    "presentation.restore": "恢复默认",
+    "presentation.save_error": "表现设置保存失败，本次调整仍已生效",
+    "presentation.load_error": "表现设置无法读取，已采用默认值",
+    "presentation.description": "这些选项仅影响声音和演出，关键机制始终保留文字与图标提示。"
+  },
+  "sources": {
+    "presentation.options": "presentation.xlsx/main/row 2",
+    "presentation.master_volume": "presentation.xlsx/main/row 3",
+    "presentation.music_volume": "presentation.xlsx/main/row 4",
+    "presentation.sfx_volume": "presentation.xlsx/main/row 5",
+    "presentation.audio_enabled": "presentation.xlsx/main/row 6",
+    "presentation.fast": "presentation.xlsx/main/row 7",
+    "presentation.show_log": "presentation.xlsx/main/row 8",
+    "presentation.shake_enabled": "presentation.xlsx/main/row 9",
+    "presentation.flash_enabled": "presentation.xlsx/main/row 10",
+    "presentation.parallax_enabled": "presentation.xlsx/main/row 11",
+    "presentation.restore": "presentation.xlsx/main/row 12",
+    "presentation.save_error": "presentation.xlsx/main/row 13",
+    "presentation.load_error": "presentation.xlsx/main/row 14",
+    "presentation.description": "presentation.xlsx/main/row 15"
+  },
+  "source_sha256": "63222f9258927970e3e5c4ce534fd9cf41950c61e97df78c03203ed01839583a"
+}

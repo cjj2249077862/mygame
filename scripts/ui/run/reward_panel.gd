@@ -5,6 +5,8 @@ signal skipped(token: int)
 signal relic_claimed(relic_id: String, token: int)
 signal relic_skipped(token: int)
 
+const CardView = preload("res://scenes/presentation/card_view.tscn")
+const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 var _token := -1
 var _submitted := false
 var _relic_submitted := false
@@ -61,15 +63,17 @@ func render_rewards(
 	_clear_children($Margin/Content/Cards)
 	_clear_children($Margin/Content/Relics)
 	for id in _candidates:
-		var button := _button(
-			data.card_text({"card_id": id, "upgraded": false}),
-			data.card_details({"card_id": id, "upgraded": false})
-		)
+		var button = CardView.instantiate()
+		button.custom_minimum_size = card_minimum_size
 		button.disabled = blocked or _cards_done
 		button.pressed.connect(_on_claim.bind(id, token))
 		$Margin/Content/Cards.add_child(button)
+		button.render({"card_id": id, "upgraded": false}, data)
 	for id in _relics:
 		var button := _button(data.relic_text(id), data.relic_text(id))
+		button.icon = Art.icon_texture(id)
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", 42)
 		button.disabled = blocked or _relics_done
 		button.pressed.connect(_on_claim_relic.bind(id, token))
 		$Margin/Content/Relics.add_child(button)

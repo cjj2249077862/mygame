@@ -1,9 +1,17 @@
 extends Control
 
 signal presentation_finished
+signal presentation_event(record: Dictionary, fast: bool)
 
 const Types = preload("res://scripts/core/enums.gd")
 const UnitView = preload("res://scenes/battle/unit_view.tscn")
+@export var event_duration: float
+@export var fast_event_duration: float
+@export var shake_angle: float
+@export var shake_duration: float
+@export var piles_preferred_size: Vector2i
+@export var dispel_preferred_size: Vector2i
+@export var popup_margin: Vector2i
 var data: RefCounted
 var engine: RefCounted
 var deck: Array = []
@@ -17,6 +25,14 @@ var locked := false
 var externally_blocked := false
 var _generation := 0
 var _active := false
+var _has_presented_state := false
+var _options: Dictionary = {
+	"shake_enabled": true, "flash_enabled": true, "show_log": true, "fast": false
+}
+var _shake_tween: Tween
+var _intent_cues: Dictionary = {}
+var _intent_lines: Dictionary = {}
+var _pending_card: Dictionary = {}
 
 @onready var hand = $Margin/Content/HandScroll/Hand
 @onready var log_view = $Margin/Content/Middle/Log
@@ -41,12 +57,31 @@ func _ready() -> void:
 	resized.connect(_on_layout_changed)
 	for dialog in [$EndConfirm, $DispelConfirm, $Piles]:
 		dialog.window_input.connect(_on_dialog_input.bind(dialog))
+	configure_presentation(_options)
+
+
+func configure_presentation(options: Dictionary) -> void:
+	_options.merge(options, true)
+	if not is_node_ready():
+		return
+	log_view.visible = bool(_options.get("show_log", true))
+	if options.has("fast"):
+		$Margin/Content/Actions/Fast.set_pressed_no_signal(bool(options.fast))
+	for view in _unit_views().values():
+		view.configure_presentation(_options)
+	if not bool(_options.get("shake_enabled", true)):
+		_stop_shake()
 
 
 func bind_battle(new_engine: RefCounted, game_data: RefCounted, run_deck: Array) -> void:
 	if engine != null and engine.settled.is_connected(_on_settled):
 		engine.settled.disconnect(_on_settled)
 	_generation += 1
+	_reset_feedback()
+	_has_presented_state = false
+	_intent_cues.clear()
+	_intent_lines.clear()
+	_pending_card.clear()
 	_close_dialogs()
 	engine = new_engine
 	data = game_data
@@ -76,6 +111,10 @@ func bind_battle(new_engine: RefCounted, game_data: RefCounted, run_deck: Array)
 	$DispelConfirm.cancel_button_text = data.text("ui.cancel")
 	$Piles.title = data.text("ui.piles")
 	$Piles.ok_button_text = data.text("ui.close")
+	if engine.state.has("hand"):
+		refresh()
+		_has_presented_state = true
+		_announce_intents()
 
 
 func leave_battle() -> void:
@@ -83,6 +122,9 @@ func leave_battle() -> void:
 		return
 	_active = false
 	_generation += 1
+	_reset_feedback()
+	_pending_card.clear()
+	_intent_lines.clear()
 	locked = false
 	if engine != null and engine.settled.is_connected(_on_settled):
 		engine.settled.disconnect(_on_settled)
@@ -102,6 +144,8 @@ func set_external_blocked(blocked: bool) -> void:
 func refresh() -> void:
 	if engine == null or not engine.state.has("hand"):
 		return
+	if locked and _has_presented_state:
+		return
 	if selected_copy >= 0 and engine.find_card(selected_copy).is_empty():
 		selected_copy = -1
 		selected_caster = ""
@@ -110,6 +154,10 @@ func refresh() -> void:
 		chosen_status = ""
 		$DispelConfirm.hide()
 	var state: Dictionary = engine.snapshot()
+	_intent_lines.clear()
+	for enemy in state.enemies:
+		if enemy.hp > 0 and not enemy.interrupted:
+			_intent_lines[enemy.id] = engine.intent_preview(enemy.id).target_ids.duplicate()
 	$Margin/Content/Header.text = data.text(
 		"ui.stats", {"turn": state.turn, "energy": state.energy, "gold": gold}
 	)
@@ -129,6 +177,7 @@ func refresh() -> void:
 				view.unit_hovered.connect(_on_unit_hovered)
 				view.unit_unhovered.connect(_on_unit_unhovered)
 				view.resized.connect(_on_layout_changed)
+				view.configure_presentation(_options)
 		for i in range(pair[0].size()):
 			var unit: Dictionary = pair[0][i]
 			var view = container.get_child(i)
@@ -185,17 +234,41 @@ func _on_settled(records: Array, _snapshot: Dictionary) -> void:
 	if not _active:
 		return
 	locked = true
-	clear_selection()
+	selected_copy = -1
+	selected_caster = ""
+	pending_target = ""
+	hovered_target = ""
+	chosen_status = ""
+	_close_dialogs()
+	hint.text = data.text("ui.select_card")
+	# The core has finished this action. Retain the previous portraits while its
+	# records play, then render the final snapshot; never simulate rules in the UI.
+	if not _has_presented_state:
+		refresh()
+		_has_presented_state = true
+	hand.render(engine.state.hand, data, engine, true, -1)
+	end_button.disabled = true
+	cast_button.hide()
+	queue_redraw()
 	var generation := _generation
 	var battle_at_start := engine
-	for record in records:
-		log_view.append_records([record], data, battle_at_start)
-		var delay := 0.025 if $Margin/Content/Actions/Fast.button_pressed else 0.12
+	var playback: Array = records.duplicate(true)
+	if not _pending_card.is_empty():
+		playback.push_front(_pending_card.duplicate(true))
+		_pending_card.clear()
+	for record in playback:
+		if record.kind != "card_play":
+			log_view.append_records([record], data, battle_at_start)
+		var fast: bool = $Margin/Content/Actions/Fast.button_pressed
+		_present_record(record, fast)
+		presentation_event.emit(record.duplicate(true), fast)
+		var delay: float = fast_event_duration if fast else event_duration
 		await get_tree().create_timer(delay).timeout
-		if generation != _generation:
+		if generation != _generation or not _active:
 			return
 	locked = false
 	refresh()
+	_announce_intents()
 	presentation_finished.emit()
 
 
@@ -244,7 +317,7 @@ func _confirm_target(id: String) -> void:
 			dispel_choices.set_item_metadata(dispel_choices.item_count - 1, option)
 		dispel_choices.select(0)
 		_on_dispel_selected(0)
-		$DispelConfirm.popup_centered()
+		_popup_sized($DispelConfirm, dispel_preferred_size)
 	else:
 		_play(id, options[0] if not options.is_empty() else "")
 
@@ -315,8 +388,14 @@ func _on_dispel_selected(index: int) -> void:
 func _play(target_id: String, status: String = "") -> void:
 	if locked or externally_blocked or not _active or selected_copy < 0:
 		return
-	var error: String = engine.play_card(selected_copy, selected_caster, target_id, status)
+	var caster_id: String = selected_caster
+	_pending_card = {"kind": "card_play", "source": caster_id, "target": target_id}
+	locked = true
+	var error: String = engine.play_card(selected_copy, caster_id, target_id, status)
 	if error != "":
+		_pending_card.clear()
+		locked = false
+		refresh()
 		hint.text = data.text(error)
 
 
@@ -333,7 +412,12 @@ func _on_end_pressed() -> void:
 func _end_turn() -> void:
 	if not locked and not externally_blocked and _active:
 		clear_selection()
-		engine.end_turn()
+		locked = true
+		var error: String = engine.end_turn()
+		if error != "":
+			locked = false
+			refresh()
+			hint.text = data.text(error)
 
 
 func _on_piles_pressed() -> void:
@@ -353,7 +437,7 @@ func _on_piles_pressed() -> void:
 			lines.append(data.card_details(copy).replace("\n", "　"))
 		lines.append("")
 	$Piles/Text.text = "\n".join(lines)
-	$Piles.popup_centered()
+	_popup_sized($Piles, piles_preferred_size)
 
 
 func _input(event: InputEvent) -> void:
@@ -418,20 +502,145 @@ func _caster_is_legal(caster_id: String) -> bool:
 func _on_layout_changed() -> void:
 	# Containers finish child placement after their current resize notification.
 	queue_redraw.call_deferred()
+	if $Piles.visible:
+		_popup_sized($Piles, piles_preferred_size)
+	if $DispelConfirm.visible:
+		_popup_sized($DispelConfirm, dispel_preferred_size)
+
+
+func _unit_views() -> Dictionary:
+	var views: Dictionary = {}
+	for container in [$Margin/Content/Middle/Field/Heroes, $Margin/Content/Middle/Field/Enemies]:
+		for view in container.get_children():
+			views[view.unit_id] = view
+	return views
+
+
+func _present_record(record: Dictionary, fast: bool) -> void:
+	var views: Dictionary = _unit_views()
+	var kind: String = record.kind
+	var source_id: String = str(record.get("source", ""))
+	var target_id: String = str(record.get("target", ""))
+	if kind in ["card_play", "damage", "heal", "shield", "revive"] and views.has(source_id):
+		views[source_id].play_cue("cast", fast)
+	if views.has(target_id) and kind != "card_play":
+		var hp_loss: int = int(record.get("hp_loss", record.get("amount", 0)))
+		var shield_loss: int = int(record.get("shield_loss", 0))
+		var cue: String = "block" if kind == "damage" and hp_loss == 0 and shield_loss > 0 else kind
+		views[target_id].play_cue(cue, fast)
+		var origin: Vector2 = (
+			views[target_id].get_global_rect().get_center() - $Feedback.global_position
+		)
+		if kind == "damage":
+			if shield_loss > 0:
+				$Feedback.show_number(
+					"−" + str(shield_loss), origin + Vector2(0, 24), "block", fast
+				)
+			if hp_loss > 0 or shield_loss == 0:
+				$Feedback.show_number("−" + str(hp_loss), origin - Vector2(0, 24), kind, fast)
+		elif kind in ["heal", "shield", "revive"]:
+			var amount: int = int(record.get("amount", 0))
+			$Feedback.show_number("+" + str(amount), origin, kind, fast)
+	if kind == "damage" and int(record.get("hp_loss", record.get("amount", 0))) > 0:
+		_shake_field(fast)
+	if (
+		kind
+		in [
+			"ot",
+			"interrupt",
+			"interrupt_failed",
+			"bomb",
+			"bomb_explode",
+			"phase",
+			"enrage",
+			"revive",
+			"summon",
+			"death",
+			"win",
+			"loss"
+		]
+	):
+		var message: String = _record_text(record)
+		$Feedback.show_banner(message, kind)
+		hint.text = message
+	queue_redraw()
+
+
+func _record_text(record: Dictionary) -> String:
+	var values: Dictionary = record.duplicate(true)
+	for key in ["source", "target"]:
+		if values.has(key):
+			var unit: Dictionary = engine.find_unit(str(values[key]))
+			values[key] = (
+				data.text(unit.name_key) if not unit.is_empty() else data.text("ui.status_effect")
+			)
+	if values.has("status"):
+		values.status = data.text("status." + str(values.status))
+	return data.text("log." + str(record.kind), values)
+
+
+func _announce_intents() -> void:
+	# New turn/phase intentions may cue once; hovering or redrawing cannot repeat audio.
+	if engine.state.phase != Types.BattlePhase.PLAYER:
+		return
+	for enemy in engine.state.enemies:
+		if enemy.hp <= 0 or enemy.intent.is_empty() or enemy.intent.kind == "normal":
+			continue
+		var key: String = "%d:%s" % [int(engine.state.turn), str(enemy.intent.get("id", ""))]
+		if _intent_cues.get(enemy.id, "") == key:
+			continue
+		_intent_cues[enemy.id] = key
+		presentation_event.emit(
+			{"kind": "cast", "target": enemy.id}, $Margin/Content/Actions/Fast.button_pressed
+		)
+
+
+func _shake_field(fast: bool) -> void:
+	if not bool(_options.get("shake_enabled", true)) or fast:
+		return
+	_stop_shake()
+	var field: Control = $Margin/Content/Middle/Field
+	field.pivot_offset = field.size * 0.5
+	_shake_tween = create_tween()
+	_shake_tween.tween_property(field, "rotation", shake_angle, shake_duration * 0.25)
+	_shake_tween.tween_property(field, "rotation", -shake_angle, shake_duration * 0.35)
+	_shake_tween.tween_property(field, "rotation", 0.0, shake_duration * 0.4)
+
+
+func _stop_shake() -> void:
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+	$Margin/Content/Middle/Field.rotation = 0.0
+
+
+func _reset_feedback() -> void:
+	_stop_shake()
+	$Feedback.reset()
+	for view in _unit_views().values():
+		view.reset_presentation()
+
+
+func _popup_sized(dialog: Window, preferred: Vector2i) -> void:
+	var available: Vector2i = Vector2i(get_viewport_rect().size) - popup_margin
+	if not dialog.visible:
+		dialog.popup_centered()
+	dialog.size = Vector2i(mini(preferred.x, available.x), mini(preferred.y, available.y))
+	_center_popup(dialog)
+	_center_popup.call_deferred(dialog)
+
+
+func _center_popup(dialog: Window) -> void:
+	if dialog.visible:
+		dialog.move_to_center()
 
 
 func _draw() -> void:
 	if not _active or engine == null or not engine.state.has("enemies"):
 		return
-	var views: Dictionary = {}
-	for container in [$Margin/Content/Middle/Field/Heroes, $Margin/Content/Middle/Field/Enemies]:
-		for view in container.get_children():
-			views[view.unit_id] = view
-	for enemy in engine.state.enemies:
-		if enemy.hp > 0 and not enemy.interrupted and views.has(enemy.id):
-			var intent: Dictionary = engine.intent_preview(enemy.id)
-			for destination in intent.target_ids:
-				_draw_target_line(views, enemy.id, str(destination), "intent_line", 2)
+	var views: Dictionary = _unit_views()
+	for enemy_id in _intent_lines:
+		for destination in _intent_lines[enemy_id]:
+			_draw_target_line(views, str(enemy_id), str(destination), "intent_line", 2)
 	if not locked and not externally_blocked and selected_copy >= 0 and selected_caster != "":
 		var copy: Dictionary = engine.find_card(selected_copy)
 		if not copy.is_empty() and data.definition("cards", copy.card_id).target == "none":

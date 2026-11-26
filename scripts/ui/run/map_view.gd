@@ -2,6 +2,7 @@ extends Control
 
 signal node_chosen(node_id: String, token: int)
 
+const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 @export var node_size: Vector2
 var _data: RefCounted
 var _nodes: Array = []
@@ -32,6 +33,9 @@ func render(state: Dictionary, data: RefCounted) -> void:
 	_buttons.clear()
 	for node in _nodes:
 		var button := Button.new()
+		button.icon = Art.icon_texture(node.kind)
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", 22)
 		var status := "current" if node.current else ("visited" if node.visited else "unvisited")
 		button.text = data.text(
 			"ui.map_node", {"depth": node.depth, "kind": data.text("ui.node." + node.kind)}

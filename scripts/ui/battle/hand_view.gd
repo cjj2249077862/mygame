@@ -2,6 +2,7 @@ extends HBoxContainer
 
 signal card_selected(copy_id: int)
 
+const CardView = preload("res://scenes/presentation/card_view.tscn")
 @export var card_minimum_size: Vector2
 
 
@@ -10,9 +11,7 @@ func render(hand: Array, data: RefCounted, engine: RefCounted, locked: bool, sel
 		remove_child(child)
 		child.queue_free()
 	for copy in hand:
-		var button := Button.new()
-		button.text = data.card_text(copy)
-		button.tooltip_text = data.card_details(copy)
+		var button = CardView.instantiate()
 		button.custom_minimum_size = card_minimum_size
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.toggle_mode = true
@@ -28,11 +27,12 @@ func render(hand: Array, data: RefCounted, engine: RefCounted, locked: bool, sel
 				)
 				if reason == "":
 					allowed = true
-		if not allowed:
-			button.tooltip_text += "\n" + data.text(reason)
 		button.disabled = locked or not allowed
 		button.pressed.connect(_on_card_pressed.bind(int(copy.copy_id)))
 		add_child(button)
+		button.render(copy, data)
+		if not allowed:
+			button.tooltip_text += "\n" + data.text(reason)
 
 
 func _on_card_pressed(copy_id: int) -> void:

@@ -5,6 +5,7 @@ signal action_requested(
 )
 
 const Types = preload("res://scripts/core/enums.gd")
+const Art = preload("res://scripts/ui/presentation/art_catalog.gd")
 @export var choice_minimum_size: Vector2
 @export var picker_preferred_size: Vector2i
 @export var picker_viewport_margin: Vector2i
@@ -67,6 +68,13 @@ func render(state: Dictionary, data: RefCounted) -> void:
 			if offer.sold_out:
 				text += "\n" + data.text("ui.sold_out")
 			var button := _choice(text, str(offer.description), "shop_buy", str(offer.id), -1)
+			button.icon = (
+				Art.card_texture(offer.item_id)
+				if offer.kind == "card"
+				else Art.icon_texture(offer.item_id)
+			)
+			button.expand_icon = true
+			button.add_theme_constant_override("icon_max_width", 44)
 			button.disabled = (
 				_blocked or offer.sold_out or offer.item_id == "" or state.gold < offer.price
 			)
