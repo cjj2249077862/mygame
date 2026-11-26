@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/ui/battle/unit_view.gd" id="1"]
+
+[node name="UnitView" type="Button"]
+custom_minimum_size = Vector2(165, 360)
+size_flags_horizontal = 3
+toggle_mode = true
+script = ExtResource("1")
+
+[node name="Content" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 10.0
+offset_right = -8.0
+offset_bottom = -10.0
+mouse_filter = 2
+
+[node name="Portrait" type="TextureRect" parent="Content"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="Details" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 3
+mouse_filter = 2
+
+[node name="Health" type="ProgressBar" parent="Content"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+show_percentage = false
+mouse_filter = 2
+
+[node name="Statuses" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
+mouse_filter = 2
+
+[node name="Intent" type="Label" parent="Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
+mouse_filter = 2

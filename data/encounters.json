@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "sheets": {
+    "main": [
+      {
+        "id": "outpost_gate",
+        "name_key": "encounter.gate",
+        "order": 1,
+        "enemies": "sentry,sentry",
+        "gold": 15,
+        "_source": "encounters.xlsx/main/row 2"
+      },
+      {
+        "id": "outpost_hall",
+        "name_key": "encounter.hall",
+        "order": 2,
+        "enemies": "sentry,cultist",
+        "gold": 20,
+        "_source": "encounters.xlsx/main/row 3"
+      },
+      {
+        "id": "outpost_trial",
+        "name_key": "encounter.trial",
+        "order": 3,
+        "enemies": "captain",
+        "gold": 0,
+        "_source": "encounters.xlsx/main/row 4"
+      }
+    ],
+    "enemies": [
+      {
+        "id": "sentry",
+        "name_key": "unit.sentry",
+        "max_hp": 32,
+        "strength": 0,
+        "interrupt_threshold": 0,
+        "immunity_count": 0,
+        "_source": "encounters.xlsx/enemies/row 2"
+      },
+      {
+        "id": "cultist",
+        "name_key": "unit.cultist",
+        "max_hp": 38,
+        "strength": 0,
+        "interrupt_threshold": 0,
+        "immunity_count": 0,
+        "_source": "encounters.xlsx/enemies/row 3"
+      },
+      {
+        "id": "captain",
+        "name_key": "unit.captain",
+        "max_hp": 95,
+        "strength": 0,
+        "interrupt_threshold": 2,
+        "immunity_count": 1,
+        "_source": "encounters.xlsx/enemies/row 4"
+      }
+    ],
+    "intents": [
+      {
+        "id": "sentry.1",
+        "enemy_id": "sentry",
+        "order": 1,
+        "kind": "normal",
+        "amount": 7,
+        "hits": 1,
+        "status": "",
+        "stacks": 0,
+        "_source": "encounters.xlsx/intents/row 2"
+      },
+      {
+        "id": "sentry.2",
+        "enemy_id": "sentry",
+        "order": 2,
+        "kind": "normal",
+        "amount": 5,
+        "hits": 1,
+        "status": "weak",
+        "stacks": 1,
+        "_source": "encounters.xlsx/intents/row 3"
+      },
+      {
+        "id": "cultist.1",
+        "enemy_id": "cultist",
+        "order": 1,
+        "kind": "interruptible",
+        "amount": 9,
+        "hits": 1,
+        "status": "poison",
+        "stacks": 2,
+        "_source": "encounters.xlsx/intents/row 4"
+      },
+      {
+        "id": "cultist.2",
+        "enemy_id": "cultist",
+        "order": 2,
+        "kind": "normal",
+        "amount": 6,
+        "hits": 1,
+        "status": "",
+        "stacks": 0,
+        "_source": "encounters.xlsx/intents/row 5"
+      },
+      {
+        "id": "captain.1",
+        "enemy_id": "captain",
+        "order": 1,
+        "kind": "normal",
+        "amount": 10,
+        "hits": 1,
+        "status": "",
+        "stacks": 0,
+        "_source": "encounters.xlsx/intents/row 6"
+      },
+      {
+        "id": "captain.2",
+        "enemy_id": "captain",
+        "order": 2,
+        "kind": "interruptible",
+        "amount": 18,
+        "hits": 1,
+        "status": "",
+        "stacks": 0,
+        "_source": "encounters.xlsx/intents/row 7"
+      },
+      {
+        "id": "captain.3",
+        "enemy_id": "captain",
+        "order": 3,
+        "kind": "uninterruptible",
+        "amount": 12,
+        "hits": 1,
+        "status": "",
+        "stacks": 0,
+        "_source": "encounters.xlsx/intents/row 8"
+      }
+    ]
+  }
+}

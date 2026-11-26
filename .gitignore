@@ -23,3 +23,11 @@ Thumbs.db
 desktop.ini
 *.swp
 *~
+
+# Python 导表缓存及表格生成器检查产物
+__pycache__/
+*.pyc
+*.xlsx.inspect.ndjson
+
+# 文档与美术预览不参与 Godot 资源导入
+/mywork/**/*.import

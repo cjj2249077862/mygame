@@ -1,0 +1,502 @@
+{
+  "version": 1,
+  "sheets": {
+    "main": [
+      {
+        "id": "card.slash",
+        "text": "挥砍",
+        "_source": "texts_zh_cn.xlsx/main/row 2"
+      },
+      {
+        "id": "desc.slash",
+        "text": "造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 3"
+      },
+      {
+        "id": "card.guard",
+        "text": "架盾",
+        "_source": "texts_zh_cn.xlsx/main/row 4"
+      },
+      {
+        "id": "desc.guard",
+        "text": "获得 {amount} 点护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 5"
+      },
+      {
+        "id": "card.stab",
+        "text": "刺击",
+        "_source": "texts_zh_cn.xlsx/main/row 6"
+      },
+      {
+        "id": "desc.stab",
+        "text": "造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 7"
+      },
+      {
+        "id": "card.parry",
+        "text": "招架",
+        "_source": "texts_zh_cn.xlsx/main/row 8"
+      },
+      {
+        "id": "desc.parry",
+        "text": "获得 {amount} 点护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 9"
+      },
+      {
+        "id": "card.smite",
+        "text": "敲击",
+        "_source": "texts_zh_cn.xlsx/main/row 10"
+      },
+      {
+        "id": "desc.smite",
+        "text": "造成 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 11"
+      },
+      {
+        "id": "card.heal",
+        "text": "治疗术",
+        "_source": "texts_zh_cn.xlsx/main/row 12"
+      },
+      {
+        "id": "desc.heal",
+        "text": "恢复最多 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 13"
+      },
+      {
+        "id": "card.shield_bash",
+        "text": "盾击",
+        "_source": "texts_zh_cn.xlsx/main/row 14"
+      },
+      {
+        "id": "desc.shield_bash",
+        "text": "造成 {amount} 点伤害，并尝试打断读条。",
+        "_source": "texts_zh_cn.xlsx/main/row 15"
+      },
+      {
+        "id": "card.double_stab",
+        "text": "连刺",
+        "_source": "texts_zh_cn.xlsx/main/row 16"
+      },
+      {
+        "id": "desc.double_stab",
+        "text": "造成两段各 {amount} 点伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 17"
+      },
+      {
+        "id": "card.first_aid",
+        "text": "急救",
+        "_source": "texts_zh_cn.xlsx/main/row 18"
+      },
+      {
+        "id": "desc.first_aid",
+        "text": "恢复最多 {amount} 点生命，驱散一种负面状态。",
+        "_source": "texts_zh_cn.xlsx/main/row 19"
+      },
+      {
+        "id": "unit.warden",
+        "text": "守卫",
+        "_source": "texts_zh_cn.xlsx/main/row 20"
+      },
+      {
+        "id": "unit.blade",
+        "text": "影刃",
+        "_source": "texts_zh_cn.xlsx/main/row 21"
+      },
+      {
+        "id": "unit.mender",
+        "text": "医者",
+        "_source": "texts_zh_cn.xlsx/main/row 22"
+      },
+      {
+        "id": "unit.sentry",
+        "text": "哨所卫兵",
+        "_source": "texts_zh_cn.xlsx/main/row 23"
+      },
+      {
+        "id": "unit.cultist",
+        "text": "疫病术士",
+        "_source": "texts_zh_cn.xlsx/main/row 24"
+      },
+      {
+        "id": "unit.captain",
+        "text": "哨所指挥官",
+        "_source": "texts_zh_cn.xlsx/main/row 25"
+      },
+      {
+        "id": "encounter.gate",
+        "text": "地牢哨所 · 门岗",
+        "_source": "texts_zh_cn.xlsx/main/row 26"
+      },
+      {
+        "id": "encounter.hall",
+        "text": "地牢哨所 · 内厅",
+        "_source": "texts_zh_cn.xlsx/main/row 27"
+      },
+      {
+        "id": "encounter.trial",
+        "text": "地牢哨所 · 指挥官",
+        "_source": "texts_zh_cn.xlsx/main/row 28"
+      },
+      {
+        "id": "status.poison",
+        "text": "中毒",
+        "_source": "texts_zh_cn.xlsx/main/row 29"
+      },
+      {
+        "id": "status.burn",
+        "text": "灼烧",
+        "_source": "texts_zh_cn.xlsx/main/row 30"
+      },
+      {
+        "id": "status.regen",
+        "text": "再生",
+        "_source": "texts_zh_cn.xlsx/main/row 31"
+      },
+      {
+        "id": "status.weak",
+        "text": "虚弱",
+        "_source": "texts_zh_cn.xlsx/main/row 32"
+      },
+      {
+        "id": "status.vulnerable",
+        "text": "易伤",
+        "_source": "texts_zh_cn.xlsx/main/row 33"
+      },
+      {
+        "id": "ui.title",
+        "text": "RaidDeck · 地牢哨所",
+        "_source": "texts_zh_cn.xlsx/main/row 34"
+      },
+      {
+        "id": "ui.subtitle",
+        "text": "哨所试炼",
+        "_source": "texts_zh_cn.xlsx/main/row 35"
+      },
+      {
+        "id": "ui.start",
+        "text": "开始试炼",
+        "_source": "texts_zh_cn.xlsx/main/row 36"
+      },
+      {
+        "id": "ui.restart",
+        "text": "重新开始",
+        "_source": "texts_zh_cn.xlsx/main/row 37"
+      },
+      {
+        "id": "ui.end_turn",
+        "text": "结束回合",
+        "_source": "texts_zh_cn.xlsx/main/row 38"
+      },
+      {
+        "id": "ui.cast",
+        "text": "施放",
+        "_source": "texts_zh_cn.xlsx/main/row 39"
+      },
+      {
+        "id": "ui.cancel",
+        "text": "取消选择",
+        "_source": "texts_zh_cn.xlsx/main/row 40"
+      },
+      {
+        "id": "ui.skip",
+        "text": "跳过选牌",
+        "_source": "texts_zh_cn.xlsx/main/row 41"
+      },
+      {
+        "id": "ui.reward",
+        "text": "选择一张卡牌",
+        "_source": "texts_zh_cn.xlsx/main/row 42"
+      },
+      {
+        "id": "ui.win",
+        "text": "试炼完成",
+        "_source": "texts_zh_cn.xlsx/main/row 43"
+      },
+      {
+        "id": "ui.loss",
+        "text": "冒险失败",
+        "_source": "texts_zh_cn.xlsx/main/row 44"
+      },
+      {
+        "id": "ui.loading",
+        "text": "正在读取配置…",
+        "_source": "texts_zh_cn.xlsx/main/row 45"
+      },
+      {
+        "id": "ui.select_card",
+        "text": "选择手牌，再选择施放者和目标。",
+        "_source": "texts_zh_cn.xlsx/main/row 46"
+      },
+      {
+        "id": "ui.select_caster",
+        "text": "请选择施放者。",
+        "_source": "texts_zh_cn.xlsx/main/row 47"
+      },
+      {
+        "id": "ui.select_target",
+        "text": "请选择目标；悬停可查看预计结果。",
+        "_source": "texts_zh_cn.xlsx/main/row 48"
+      },
+      {
+        "id": "ui.confirm_self",
+        "text": "此牌作用于自己，点击施放确认。",
+        "_source": "texts_zh_cn.xlsx/main/row 49"
+      },
+      {
+        "id": "ui.confirm_end",
+        "text": "仍有可以施放的手牌，确定结束回合？",
+        "_source": "texts_zh_cn.xlsx/main/row 50"
+      },
+      {
+        "id": "ui.confirm",
+        "text": "确认",
+        "_source": "texts_zh_cn.xlsx/main/row 51"
+      },
+      {
+        "id": "ui.close",
+        "text": "关闭",
+        "_source": "texts_zh_cn.xlsx/main/row 52"
+      },
+      {
+        "id": "ui.piles",
+        "text": "查看牌堆",
+        "_source": "texts_zh_cn.xlsx/main/row 53"
+      },
+      {
+        "id": "ui.fast",
+        "text": "快速播放",
+        "_source": "texts_zh_cn.xlsx/main/row 54"
+      },
+      {
+        "id": "ui.dispel",
+        "text": "选择要驱散的状态",
+        "_source": "texts_zh_cn.xlsx/main/row 55"
+      },
+      {
+        "id": "ui.dispel_confirm",
+        "text": "驱散并施放",
+        "_source": "texts_zh_cn.xlsx/main/row 56"
+      },
+      {
+        "id": "ui.party",
+        "text": "小队",
+        "_source": "texts_zh_cn.xlsx/main/row 57"
+      },
+      {
+        "id": "ui.enemies",
+        "text": "敌方",
+        "_source": "texts_zh_cn.xlsx/main/row 58"
+      },
+      {
+        "id": "ui.log",
+        "text": "战斗记录",
+        "_source": "texts_zh_cn.xlsx/main/row 59"
+      },
+      {
+        "id": "ui.reward_hint",
+        "text": "候选已固定；跳过不会扣除金币。",
+        "_source": "texts_zh_cn.xlsx/main/row 60"
+      },
+      {
+        "id": "ui.result_hint",
+        "text": "重新出发，尝试不同的出牌策略。",
+        "_source": "texts_zh_cn.xlsx/main/row 61"
+      },
+      {
+        "id": "ui.stats",
+        "text": "回合 {turn}　能量 {energy}　金币 {gold}",
+        "_source": "texts_zh_cn.xlsx/main/row 62"
+      },
+      {
+        "id": "ui.unit",
+        "text": "{name}\n生命 {hp}/{max_hp}　护盾 {shield}\n仇恨 {threat}",
+        "_source": "texts_zh_cn.xlsx/main/row 63"
+      },
+      {
+        "id": "ui.card",
+        "text": "{name}　费用 {cost}\n{description}",
+        "_source": "texts_zh_cn.xlsx/main/row 64"
+      },
+      {
+        "id": "ui.intent",
+        "text": "{kind} → {target}\n预计 {amount} × {hits}　{status} {stacks}\n{immunity}",
+        "_source": "texts_zh_cn.xlsx/main/row 65"
+      },
+      {
+        "id": "ui.immune",
+        "text": "打断免疫",
+        "_source": "texts_zh_cn.xlsx/main/row 66"
+      },
+      {
+        "id": "ui.not_immune",
+        "text": "无打断免疫",
+        "_source": "texts_zh_cn.xlsx/main/row 67"
+      },
+      {
+        "id": "ui.interrupted",
+        "text": "本回合已打断",
+        "_source": "texts_zh_cn.xlsx/main/row 68"
+      },
+      {
+        "id": "ui.dead",
+        "text": "已阵亡",
+        "_source": "texts_zh_cn.xlsx/main/row 69"
+      },
+      {
+        "id": "ui.preview",
+        "text": "{name}：生命 {hp_delta}，护盾 {shield_delta}，仇恨 {threat_delta}",
+        "_source": "texts_zh_cn.xlsx/main/row 70"
+      },
+      {
+        "id": "ui.pile.draw",
+        "text": "抽牌堆（不显示顺序）",
+        "_source": "texts_zh_cn.xlsx/main/row 71"
+      },
+      {
+        "id": "ui.pile.hand",
+        "text": "手牌",
+        "_source": "texts_zh_cn.xlsx/main/row 72"
+      },
+      {
+        "id": "ui.pile.discard",
+        "text": "弃牌堆",
+        "_source": "texts_zh_cn.xlsx/main/row 73"
+      },
+      {
+        "id": "ui.pile.exhaust",
+        "text": "消耗区",
+        "_source": "texts_zh_cn.xlsx/main/row 74"
+      },
+      {
+        "id": "ui.pile.removed",
+        "text": "阵亡暂移区",
+        "_source": "texts_zh_cn.xlsx/main/row 75"
+      },
+      {
+        "id": "ui.pile.deck",
+        "text": "本局牌组",
+        "_source": "texts_zh_cn.xlsx/main/row 76"
+      },
+      {
+        "id": "ui.kind.normal",
+        "text": "普通行动",
+        "_source": "texts_zh_cn.xlsx/main/row 77"
+      },
+      {
+        "id": "ui.kind.interruptible",
+        "text": "可打断读条",
+        "_source": "texts_zh_cn.xlsx/main/row 78"
+      },
+      {
+        "id": "ui.kind.uninterruptible",
+        "text": "不可打断机制",
+        "_source": "texts_zh_cn.xlsx/main/row 79"
+      },
+      {
+        "id": "error.phase",
+        "text": "当前不能操作。",
+        "_source": "texts_zh_cn.xlsx/main/row 80"
+      },
+      {
+        "id": "error.card",
+        "text": "这张手牌已失效，请重新选择。",
+        "_source": "texts_zh_cn.xlsx/main/row 81"
+      },
+      {
+        "id": "error.energy",
+        "text": "能量不足。",
+        "_source": "texts_zh_cn.xlsx/main/row 82"
+      },
+      {
+        "id": "error.caster",
+        "text": "该角色不能施放这张牌。",
+        "_source": "texts_zh_cn.xlsx/main/row 83"
+      },
+      {
+        "id": "error.target",
+        "text": "目标不符合要求。",
+        "_source": "texts_zh_cn.xlsx/main/row 84"
+      },
+      {
+        "id": "error.dispel",
+        "text": "请先选择一种可驱散状态。",
+        "_source": "texts_zh_cn.xlsx/main/row 85"
+      },
+      {
+        "id": "error.config",
+        "text": "配置校验失败，请检查导出结果。",
+        "_source": "texts_zh_cn.xlsx/main/row 86"
+      },
+      {
+        "id": "log.start",
+        "text": "第 {turn} 回合开始。",
+        "_source": "texts_zh_cn.xlsx/main/row 87"
+      },
+      {
+        "id": "log.damage",
+        "text": "{source} 对 {target} 造成 {amount} 点实际伤害。",
+        "_source": "texts_zh_cn.xlsx/main/row 88"
+      },
+      {
+        "id": "log.heal",
+        "text": "{source} 为 {target} 恢复 {amount} 点生命。",
+        "_source": "texts_zh_cn.xlsx/main/row 89"
+      },
+      {
+        "id": "log.shield",
+        "text": "{source} 为 {target} 提供 {amount} 点护盾。",
+        "_source": "texts_zh_cn.xlsx/main/row 90"
+      },
+      {
+        "id": "log.interrupt",
+        "text": "{target} 的读条已打断。",
+        "_source": "texts_zh_cn.xlsx/main/row 91"
+      },
+      {
+        "id": "log.interrupt_failed",
+        "text": "{target} 当前无法打断。",
+        "_source": "texts_zh_cn.xlsx/main/row 92"
+      },
+      {
+        "id": "log.dispel",
+        "text": "{target} 的 {status} 已驱散。",
+        "_source": "texts_zh_cn.xlsx/main/row 93"
+      },
+      {
+        "id": "log.status",
+        "text": "{target} 获得 {amount} 层 {status}。",
+        "_source": "texts_zh_cn.xlsx/main/row 94"
+      },
+      {
+        "id": "log.death",
+        "text": "{target} 阵亡。",
+        "_source": "texts_zh_cn.xlsx/main/row 95"
+      },
+      {
+        "id": "log.ot",
+        "text": "OT：{target} 成为攻击目标。",
+        "_source": "texts_zh_cn.xlsx/main/row 96"
+      },
+      {
+        "id": "log.win",
+        "text": "战斗胜利。",
+        "_source": "texts_zh_cn.xlsx/main/row 97"
+      },
+      {
+        "id": "log.loss",
+        "text": "战斗失败。",
+        "_source": "texts_zh_cn.xlsx/main/row 98"
+      },
+      {
+        "id": "ui.health",
+        "text": "生命",
+        "_source": "texts_zh_cn.xlsx/main/row 99"
+      },
+      {
+        "id": "ui.status_effect",
+        "text": "持续效果",
+        "_source": "texts_zh_cn.xlsx/main/row 100"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/ui/battle/battle_log.gd" id="1"]
+[node name="BattleLog" type="RichTextLabel"]
+custom_minimum_size = Vector2(230, 300)
+scroll_following = true
+theme_override_font_sizes/normal_font_size = 16
+script = ExtResource("1")

@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "sheets": {
+    "main": [
+      {
+        "id": "warden",
+        "name_key": "unit.warden",
+        "role": "tank",
+        "max_hp": 80,
+        "strength": 0,
+        "passive": "first_shield",
+        "passive_amount": 3,
+        "portrait": "res://assets/characters/tank.png",
+        "_source": "characters.xlsx/main/row 2"
+      },
+      {
+        "id": "blade",
+        "name_key": "unit.blade",
+        "role": "assassin",
+        "max_hp": 55,
+        "strength": 0,
+        "passive": "first_damage",
+        "passive_amount": 3,
+        "portrait": "res://assets/characters/assassin.png",
+        "_source": "characters.xlsx/main/row 3"
+      },
+      {
+        "id": "mender",
+        "name_key": "unit.mender",
+        "role": "healer",
+        "max_hp": 60,
+        "strength": 0,
+        "passive": "first_heal",
+        "passive_amount": 3,
+        "portrait": "res://assets/characters/healer.png",
+        "_source": "characters.xlsx/main/row 4"
+      }
+    ],
+    "starter": [
+      {
+        "id": "warden.slash",
+        "character_id": "warden",
+        "card_id": "slash",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 2"
+      },
+      {
+        "id": "warden.guard",
+        "character_id": "warden",
+        "card_id": "guard",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 3"
+      },
+      {
+        "id": "warden.shield_bash",
+        "character_id": "warden",
+        "card_id": "shield_bash",
+        "count": 1,
+        "_source": "characters.xlsx/starter/row 4"
+      },
+      {
+        "id": "blade.stab",
+        "character_id": "blade",
+        "card_id": "stab",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 5"
+      },
+      {
+        "id": "blade.parry",
+        "character_id": "blade",
+        "card_id": "parry",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 6"
+      },
+      {
+        "id": "blade.double_stab",
+        "character_id": "blade",
+        "card_id": "double_stab",
+        "count": 1,
+        "_source": "characters.xlsx/starter/row 7"
+      },
+      {
+        "id": "mender.smite",
+        "character_id": "mender",
+        "card_id": "smite",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 8"
+      },
+      {
+        "id": "mender.heal",
+        "character_id": "mender",
+        "card_id": "heal",
+        "count": 2,
+        "_source": "characters.xlsx/starter/row 9"
+      },
+      {
+        "id": "mender.first_aid",
+        "character_id": "mender",
+        "card_id": "first_aid",
+        "count": 1,
+        "_source": "characters.xlsx/starter/row 10"
+      }
+    ]
+  }
+}

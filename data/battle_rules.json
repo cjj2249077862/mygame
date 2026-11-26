@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "sheets": {
+    "main": [
+      {
+        "id": "party_size",
+        "value": 3,
+        "_source": "battle_rules.xlsx/main/row 2"
+      },
+      {
+        "id": "base_energy",
+        "value": 3,
+        "_source": "battle_rules.xlsx/main/row 3"
+      },
+      {
+        "id": "draw_count",
+        "value": 5,
+        "_source": "battle_rules.xlsx/main/row 4"
+      },
+      {
+        "id": "hand_limit",
+        "value": 10,
+        "_source": "battle_rules.xlsx/main/row 5"
+      },
+      {
+        "id": "initial_tank_threat",
+        "value": 10,
+        "_source": "battle_rules.xlsx/main/row 6"
+      },
+      {
+        "id": "initial_other_threat",
+        "value": 0,
+        "_source": "battle_rules.xlsx/main/row 7"
+      },
+      {
+        "id": "heal_threat",
+        "value": 0.4,
+        "_source": "battle_rules.xlsx/main/row 8"
+      },
+      {
+        "id": "post_battle_revive",
+        "value": 0.2,
+        "_source": "battle_rules.xlsx/main/row 9"
+      },
+      {
+        "id": "reward_count",
+        "value": 3,
+        "_source": "battle_rules.xlsx/main/row 10"
+      },
+      {
+        "id": "weak_multiplier",
+        "value": 0.75,
+        "_source": "battle_rules.xlsx/main/row 11"
+      },
+      {
+        "id": "vulnerable_multiplier",
+        "value": 1.5,
+        "_source": "battle_rules.xlsx/main/row 12"
+      },
+      {
+        "id": "starting_gold",
+        "value": 0,
+        "_source": "battle_rules.xlsx/main/row 13"
+      }
+    ],
+    "statuses": [
+      {
+        "id": "poison",
+        "name_key": "status.poison",
+        "dispellable": true,
+        "per_stack": 1,
+        "decay": 1,
+        "_source": "battle_rules.xlsx/statuses/row 2"
+      },
+      {
+        "id": "burn",
+        "name_key": "status.burn",
+        "dispellable": true,
+        "per_stack": 1,
+        "decay": 1,
+        "_source": "battle_rules.xlsx/statuses/row 3"
+      },
+      {
+        "id": "regen",
+        "name_key": "status.regen",
+        "dispellable": false,
+        "per_stack": 1,
+        "decay": 1,
+        "_source": "battle_rules.xlsx/statuses/row 4"
+      },
+      {
+        "id": "weak",
+        "name_key": "status.weak",
+        "dispellable": true,
+        "per_stack": 1,
+        "decay": 1,
+        "_source": "battle_rules.xlsx/statuses/row 5"
+      },
+      {
+        "id": "vulnerable",
+        "name_key": "status.vulnerable",
+        "dispellable": true,
+        "per_stack": 1,
+        "decay": 1,
+        "_source": "battle_rules.xlsx/statuses/row 6"
+      }
+    ]
+  }
+}
