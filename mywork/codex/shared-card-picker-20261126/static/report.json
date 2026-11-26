@@ -1,0 +1,45 @@
+{
+  "started": "20261126-182143",
+  "mode": "static",
+  "source_sha256": "b3eb57fa09cb57f457630ca07ef8d744bd2bd84a24eeb70c7090af1dceed1887",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "presentation_json",
+      "passed": true
+    },
+    {
+      "name": "presentation_tests",
+      "passed": true
+    },
+    {
+      "name": "audio_assets",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 137
+    }
+  ],
+  "human_review": "pending",
+  "phase": 3,
+  "phase_three_accepted": false,
+  "status": "pending_engine",
+  "source_unchanged": true
+}

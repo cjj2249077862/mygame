@@ -1,0 +1,55 @@
+{
+  "started": "20261126-143246",
+  "mode": "engine",
+  "source_sha256": "95a2c9caae1e819a21c38e7ebb05c2caba5c7783a063b1853df7d166dd280285",
+  "checks": [
+    {
+      "name": "source_json",
+      "passed": true
+    },
+    {
+      "name": "export_tests",
+      "passed": true
+    },
+    {
+      "name": "runner_tests",
+      "passed": true
+    },
+    {
+      "name": "whitespace",
+      "passed": true
+    },
+    {
+      "name": "presentation_json",
+      "passed": true
+    },
+    {
+      "name": "presentation_tests",
+      "passed": true
+    },
+    {
+      "name": "audio_assets",
+      "passed": true
+    },
+    {
+      "name": "resource_paths",
+      "passed": true,
+      "references": 109
+    },
+    {
+      "name": "godot_import",
+      "passed": true
+    },
+    {
+      "name": "import_source_integrity",
+      "passed": false
+    }
+  ],
+  "human_review": "pending",
+  "phase": 3,
+  "phase_three_accepted": false,
+  "source_before_import_sha256": "95a2c9caae1e819a21c38e7ebb05c2caba5c7783a063b1853df7d166dd280285",
+  "source_after_import_sha256": "043f45fb5f8e54b1102aaf252040ce5fa06335a7e5c202c7def66150c1fc6982",
+  "status": "source_changed_during_checks",
+  "source_unchanged": false
+}

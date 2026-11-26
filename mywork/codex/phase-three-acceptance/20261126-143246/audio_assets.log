@@ -1,0 +1,16 @@
+assets\audio\sfx\card_play.wav: 0.24s, 44100Hz, 1ch
+assets\audio\sfx\damage.wav: 0.28s, 44100Hz, 1ch
+assets\audio\sfx\shield.wav: 0.48s, 44100Hz, 1ch
+assets\audio\sfx\heal.wav: 0.72s, 44100Hz, 1ch
+assets\audio\sfx\cast.wav: 0.95s, 44100Hz, 1ch
+assets\audio\sfx\mark.wav: 0.76s, 44100Hz, 1ch
+assets\audio\sfx\interrupt.wav: 0.48s, 44100Hz, 1ch
+assets\audio\sfx\ot.wav: 0.48s, 44100Hz, 1ch
+assets\audio\sfx\win.wav: 1.80s, 44100Hz, 1ch
+assets\audio\sfx\loss.wav: 1.70s, 44100Hz, 1ch
+assets\audio\sfx\death.wav: 0.68s, 44100Hz, 1ch
+assets\audio\sfx\dispel.wav: 0.57s, 44100Hz, 1ch
+assets\audio\music\menu.wav: 24.00s, 22050Hz, 2ch
+assets\audio\music\chapter.wav: 24.00s, 22050Hz, 2ch
+assets\audio\music\boss.wav: 16.00s, 22050Hz, 2ch
+15 original procedural audio assets verified.

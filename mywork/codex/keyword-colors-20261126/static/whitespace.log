@@ -1,0 +1,5 @@
+warning: in the working copy of 'data/battle_rules.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'data/maps.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scenes/presentation/card_view.tscn', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/data/game_data.gd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'themes/game_theme.tres', LF will be replaced by CRLF the next time Git touches it
